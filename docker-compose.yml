@@ -4,21 +4,31 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: qwen-image-api
+    user: "${UID}:${GID}"
     ports:
       - "8000:8000"
     volumes:
       - ./models:/app/models
-      - ./cache/miopen:/root/.config/miopen
+      - ./cache/miopen:/app/cache/miopen
+      - ./output:/app/output
+      - ./config.yaml:/app/config.yaml:ro
     environment:
       - PYTORCH_CUDA_ALLOC_CONF=garbage_collection_threshold:0.6,max_split_size_mb:512
-      # - MIOPEN_FIND_ENFORCE=3 # forces a full kernel search-and-compile on first run (slower first request) so it actually populates the cache instead of settling for a fast-but-unoptimized fallback. Once ./cache/miopen/gfx1201_32.ukdb exists and looks populated, remove that env var — leaving it set forces re-search every time, which defeats the purpose.
+      # forces a full kernel search-and-compile on first run (slower first request) 
+      # so it actually populates the cache instead of settling for a fast-but-unoptimized fallback. 
+      # Once ./cache/miopen/gfx1201_32.ukdb exists and looks populated, 
+      # remove that env var — leaving it set forces re-search every time, which defeats the purpose.
+      # - MIOPEN_FIND_ENFORCE=3 
+      - MIOPEN_USER_DB_PATH=/app/cache/miopen
+      - MIOPEN_CACHE_DIR=/app/cache/miopen
     ipc: host
     devices:
       - /dev/kfd:/dev/kfd
       - /dev/dri:/dev/dri
     group_add:
       - video
-      - "987"  # getent group render | cut -d: -f3
+      # getent group render | cut -d: -f3
+      - "${RENDER_GID}"
     restart: "no"
     cap_add:
       - SYS_PTRACE

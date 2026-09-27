@@ -1,10 +1,14 @@
 import base64
 import gc
 from io import BytesIO
+import os
+import time
+import uuid
 
 import torch
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from config import config
 
 from schemas import ImageRequest
 from pipeline import pipe
@@ -16,6 +20,12 @@ from monitoring import (
     get_ram_stats,
     get_recent_logs,
 )
+
+OUTPUT_DIR = "/app/output"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+TOTAL_STEPS = config["generation"]["total_steps"]
+MAX_PIXELS = config["generation"]["max_pixels"]
 
 app = FastAPI()
 
@@ -46,8 +56,14 @@ def generate_image(req: ImageRequest):
     except Exception:
         w, h = 1024, 1024
 
+    if w * h > MAX_PIXELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Resolution {w}x{h} ({w*h} px) exceeds max_pixels ({MAX_PIXELS}) in config.yaml.",
+        )
+
     logger.info(f"Generating: '{req.prompt[:60]}' size={w}x{h}")
-    generation_state.update({"active": True, "step": 0, "total_steps": 40})
+    generation_state.update({"active": True, "step": 0, "total_steps": TOTAL_STEPS})
 
     try:
         with torch.inference_mode():
@@ -55,9 +71,15 @@ def generate_image(req: ImageRequest):
                 prompt=req.prompt,
                 width=w,
                 height=h,
+                num_inference_steps=TOTAL_STEPS,
                 callback_on_step_end=progress_callback,
             ).images[0]
         logger.info("Generation complete")
+
+        filename = f"{int(time.time())}_{uuid.uuid4().hex[:8]}.png"
+        filepath = os.path.join(OUTPUT_DIR, filename)
+        image.save(filepath)
+        logger.info(f"Saved output image to {filepath}")
     finally:
         generation_state["active"] = False
 

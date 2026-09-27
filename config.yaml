@@ -1,0 +1,41 @@
+# Qwen Image API configuration
+#
+# Edit this file and restart the container (docker compose restart qwen-image-api)
+# to apply changes — no rebuild needed, since this file is volume-mounted, not
+# copied into the image.
+
+memory:
+  # VRAM budget for pipeline component placement (device_map="balanced"), set
+  # at LOAD TIME. Components too large for this budget (the text encoder, in
+  # our setup) get placed on CPU RAM permanently instead of GPU.
+  #
+  # This does NOT cap runtime memory during generation — that's controlled by
+  # resolution (see max_pixels below) and is managed separately by PyTorch's
+  # allocator. The relationship between the two: a LOWER value here frees more
+  # of the physical 32GB card for the runtime activation spike during
+  # denoising/decode, which is what large resolutions actually need. A higher
+  # value keeps more weights GPU-resident (marginally faster) but leaves less
+  # room for that spike.
+  #
+  # 16GiB is the current tested value — enables 1280x1280, but that
+  # generation peaked at ~31GB out of the card's ~31.86GB physical ceiling.
+  # That is NOT comfortable headroom — it's proof it barely fits once, not a
+  # safe margin. Treat 1280x1280 as the tested ceiling, not a floor to build
+  # above without re-testing.
+  gpu_max_memory: "16GiB"
+
+  # System RAM budget for whatever spills off the GPU.
+  cpu_max_memory: "40GiB"
+
+generation:
+  # Denoising steps. Higher = better quality, slower. 40 is the diffusers
+  # default for Qwen-Image-2.1.
+  total_steps: 40
+
+  # Requests above this pixel count (width * height) are rejected with a
+  # clean 400 error. 1638400 = 1280x1280, tested stable at gpu_max_memory:
+  # 16GiB (see note above re: how close to the VRAM ceiling that actually
+  # runs). If you raise gpu_max_memory back up for faster small-image
+  # generation, re-test at this resolution before trusting it again — the two
+  # settings interact.
+  max_pixels: 1638400

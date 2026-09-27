@@ -18,3 +18,7 @@ response.json
 
 # Docs not needed inside the container
 *.md
+
+# Private
+output/
+.env

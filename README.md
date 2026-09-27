@@ -29,6 +29,12 @@ something from scratch.
 ## Quickstart
 
 ```bash
+# One-time setup per machine: create local folders and machine-specific identity
+mkdir -p models output cache/miopen
+echo "UID=$(id -u)" > .env
+echo "GID=$(id -g)" >> .env
+echo "RENDER_GID=$(getent group render | cut -d: -f3)" >> .env
+
 # 1. Populate models/ — see docs/MODEL_SETUP.md for the full download steps
 # 2. Build and start everything
 docker compose up -d --build

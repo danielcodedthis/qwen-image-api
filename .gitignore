@@ -17,3 +17,7 @@ response.json
 .vscode/
 *.swp
 .DS_Store
+
+# Private
+output/
+.env

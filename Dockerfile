@@ -9,9 +9,12 @@ RUN pip install --no-cache-dir \
     transformers \
     accelerate \
     pillow \
-    torchao
+    torchao \
+    pyyaml
 
 COPY server/ /app/
+
+RUN chmod -R a+rX /app
 
 EXPOSE 8000
 

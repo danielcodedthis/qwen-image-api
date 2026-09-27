@@ -10,6 +10,7 @@
   button { background: #3b82f6; color: white; border: none; cursor: pointer; }
   button:disabled { background: #555; cursor: not-allowed; }
   #status { margin-top: 12px; color: #aaa; min-height: 20px; }
+  #status.warn { color: #f59e0b; }
   img { max-width: 100%; margin-top: 16px; border-radius: 8px; display: block; }
 
   #stats { display: flex; gap: 16px; margin-top: 20px; }
@@ -29,11 +30,14 @@
   <br>
   <select id="size">
     <option value="1024x1024">1024x1024</option>
+    <option value="512x512">512x512</option>
+    <option value="512x768">512x768</option>
     <option value="768x768">768x768</option>
+    <option value="1280x1280">1280x1280</option>
     <option value="1536x1536">1536x1536</option>
   </select>
-  <button id="go">Generate</button>
-  <div id="status"></div>
+  <button id="go" disabled>Generate</button>
+  <div id="status" class="warn">Waiting for the API to start (loading model)...</div>
   <img id="result" style="display:none;">
 
   <div id="stats">
@@ -63,10 +67,21 @@ const statusEl = document.getElementById("status");
 const img = document.getElementById("result");
 const logsEl = document.getElementById("logs");
 
+let apiReady = false;
+let generating = false;
+
 async function pollStatus() {
   try {
     const res = await fetch(API_BASE + "/status");
+    if (!res.ok) throw new Error("not ok");
     const data = await res.json();
+
+    if (!apiReady) {
+      apiReady = true;
+      statusEl.classList.remove("warn");
+      statusEl.textContent = "";
+    }
+    goBtn.disabled = generating; // only generating (not readiness) controls this now
 
     if (!data.gpu.error) {
       const pct = (data.gpu.used_gb / data.gpu.total_gb) * 100;
@@ -90,7 +105,11 @@ async function pollStatus() {
     logsEl.textContent = data.logs.join("\n");
     logsEl.scrollTop = logsEl.scrollHeight;
   } catch (err) {
-    // API might not be up yet — fail silently, next poll will retry
+    // Couldn't reach the API — either still starting up, or it just restarted.
+    apiReady = false;
+    goBtn.disabled = true;
+    statusEl.classList.add("warn");
+    statusEl.textContent = "Waiting for the API to start (loading model)...";
   }
 }
 setInterval(pollStatus, 1500);
@@ -101,9 +120,11 @@ goBtn.addEventListener("click", async () => {
   if (!prompt) { statusEl.textContent = "Enter a prompt first."; return; }
 
   const size = document.getElementById("size").value;
+  generating = true;
   goBtn.disabled = true;
   img.style.display = "none";
   const start = Date.now();
+  statusEl.classList.remove("warn");
   statusEl.textContent = "Generating... this can take a couple minutes.";
 
   try {
@@ -124,7 +145,8 @@ goBtn.addEventListener("click", async () => {
   } catch (err) {
     statusEl.textContent = "Failed: " + err.message;
   } finally {
-    goBtn.disabled = false;
+    generating = false;
+    goBtn.disabled = !apiReady;
   }
 });
 </script>
