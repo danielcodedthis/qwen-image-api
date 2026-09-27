@@ -12,12 +12,15 @@ __pycache__/
 # Local test outputs from curl/testing
 *.png
 response.json
+output/
 
 # Editor/OS cruft
 .vscode/
 *.swp
 .DS_Store
 
-# Private
-output/
+# Environment variables
 .env
+
+# Other
+docs/PROMPTS.md

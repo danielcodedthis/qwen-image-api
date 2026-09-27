@@ -39,3 +39,14 @@ generation:
   # generation, re-test at this resolution before trusting it again — the two
   # settings interact.
   max_pixels: 1638400
+
+ui:
+  available_sizes:
+    - "1024x1024"
+    - "512x512"
+    - "512x768"
+    - "768x768"
+    - "768x1280"
+    - "1024x1280"
+    - "1280x1280"
+    - "1536x1536"

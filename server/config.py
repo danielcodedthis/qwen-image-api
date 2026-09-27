@@ -12,6 +12,9 @@ DEFAULTS = {
         "total_steps": 40,
         "max_pixels": 1024 * 1024,
     },
+    "ui": {
+        "available_sizes": ["512x512", "768x768", "1024x1024"],
+    }
 }
 
 

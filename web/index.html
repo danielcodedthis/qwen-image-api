@@ -28,14 +28,7 @@
   <h2>Qwen Image Generator</h2>
   <textarea id="prompt" placeholder="a red fox sitting in a snowy forest..."></textarea>
   <br>
-  <select id="size">
-    <option value="1024x1024">1024x1024</option>
-    <option value="512x512">512x512</option>
-    <option value="512x768">512x768</option>
-    <option value="768x768">768x768</option>
-    <option value="1280x1280">1280x1280</option>
-    <option value="1536x1536">1536x1536</option>
-  </select>
+  <select id="size" disabled></select>
   <button id="go" disabled>Generate</button>
   <div id="status" class="warn">Waiting for the API to start (loading model)...</div>
   <img id="result" style="display:none;">
@@ -69,6 +62,7 @@ const logsEl = document.getElementById("logs");
 
 let apiReady = false;
 let generating = false;
+let sizesLoaded = false;
 
 async function pollStatus() {
   try {
@@ -114,6 +108,31 @@ async function pollStatus() {
 }
 setInterval(pollStatus, 1500);
 pollStatus();
+
+async function loadSizes() {
+  if (sizesLoaded) return;
+  try {
+    const res = await fetch(API_BASE + "/config");
+    if (!res.ok) throw new Error("not ok");
+    const data = await res.json();
+    const select = document.getElementById("size");
+    select.innerHTML = "";
+    data.available_sizes.forEach(size => {
+      const [w, h] = size.split("x").map(Number);
+      // if (w * h > data.max_pixels) return; // defensive, in case config drifts
+      const opt = document.createElement("option");
+      opt.value = size;
+      opt.textContent = size;
+      select.appendChild(opt);
+    });
+    select.disabled = false;
+    sizesLoaded = true;
+  } catch (err) {
+    // API not ready yet — keep retrying
+  }
+}
+setInterval(loadSizes, 3000);
+loadSizes();
 
 goBtn.addEventListener("click", async () => {
   const prompt = document.getElementById("prompt").value.trim();

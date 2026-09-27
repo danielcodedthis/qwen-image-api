@@ -49,6 +49,14 @@ def get_status():
     }
 
 
+@app.get("/config")
+def get_public_config():
+    return {
+        "available_sizes": config["ui"]["available_sizes"],
+        "max_pixels": MAX_PIXELS,
+    }
+
+
 @app.post("/v1/images/generations")
 def generate_image(req: ImageRequest):
     try:

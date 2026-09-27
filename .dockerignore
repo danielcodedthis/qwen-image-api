@@ -15,10 +15,10 @@ __pycache__/
 # Local test outputs
 *.png
 response.json
+output/
 
 # Docs not needed inside the container
 *.md
 
-# Private
-output/
+# Environment variables
 .env
