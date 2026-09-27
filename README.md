@@ -1,0 +1,92 @@
+# Qwen Image API
+
+A self-hosted image generation API powered by Qwen-Image-2.1, running on AMD ROCm
+(tested on an AMD Radeon AI PRO R9700, 32GB VRAM). Exposes an OpenAI-compatible
+`/v1/images/generations` endpoint, plus a minimal web UI for prompting without curl.
+
+## Architecture
+
+```
+┌─────────────────┐      ┌──────────────────────┐
+│  qwen-image-ui   │      │   qwen-image-api      │
+│  (nginx, :3000)  │─────▶│   (FastAPI, :8000)    │
+│  prompt/preview  │      │   diffusers pipeline  │
+└─────────────────┘      │   on ROCm/gfx1201      │
+                          └──────────────────────┘
+```
+
+- **`qwen-image-api`** — FastAPI server wrapping the diffusers `QwenImage21Pipeline`.
+  Code lives in `server/`, split into `main.py` (routes), `pipeline.py` (model
+  loading/quantization), `monitoring.py` (logs + GPU/RAM stats), `schemas.py`
+  (request models).
+- **`qwen-image-ui`** — a single static `index.html` served by nginx. Talks to the
+  API directly over HTTP; no build step, no framework.
+
+See `CLAUDE.md` for AI-assistant-facing context and `docs/PITFALLS.md` for the
+list of issues we've already debugged — check there before re-diagnosing
+something from scratch.
+
+## Quickstart
+
+```bash
+# 1. Populate models/ — see docs/MODEL_SETUP.md for the full download steps
+# 2. Build and start everything
+docker compose up -d --build
+
+# 3. Open the UI
+# http://localhost:3000
+
+# 4. Or hit the API directly
+curl -X POST http://localhost:8000/v1/images/generations \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "a red fox sitting in a snowy forest", "size": "1024x1024"}'
+```
+
+First generation after a fresh build will be slower than usual — MIOpen tunes
+its kernel cache for your specific GPU on first run and reuses it afterward
+(see `docs/PITFALLS.md#miopen-cache`).
+
+## Using the web UI
+
+![UI screenshot](docs/images/ui-screenshot.webp)
+
+*(Add a screenshot: take one of the running UI at `localhost:3000`, then convert
+it to WebP with `cwebp screenshot.png -o docs/images/ui-screenshot.webp -q 80`
+— install `libwebp` first if `cwebp` isn't available.)*
+
+1. Type a prompt in the text box.
+2. Pick a resolution (`1024x1024` is the tested default).
+3. Click **Generate** — the panel below shows live VRAM/RAM usage and denoising
+   step progress while it runs (usually 1–3 minutes depending on resolution).
+4. The finished image renders inline once done.
+
+## Server settings (`server/pipeline.py`)
+
+These are the knobs most likely to need adjusting on different hardware:
+
+| Setting | What it controls | Notes |
+|---|---|---|
+| `quant_mapping` | Which pipeline components run in int8 (`transformer`, `text_encoder`) | Trades VRAM for image fidelity — see `docs/PITFALLS.md` |
+| `max_memory={0: "26GiB", "cpu": "40GiB"}` | GPU VRAM budget before spilling components to system RAM | Push higher if your card has more headroom; watch for driver resets if pushed too far |
+| `pipe.vae.enable_slicing()` | Cheap memory optimization, minimal quality cost | Keep enabled |
+| `pipe.vae.enable_tiling()` | Currently **disabled** | Caused visible purple seam artifacts — only re-enable if you hit VAE-decode OOM and can't free VRAM another way |
+
+Request-level settings (`server/schemas.py`):
+
+| Field | Default | Notes |
+|---|---|---|
+| `size` | `"1024x1024"` | Passed straight through as width x height |
+| `n`, `response_format` | unused placeholders | Present for OpenAI API compatibility, not implemented |
+
+## Docs
+
+- `CLAUDE.md` — context for AI assistants working on this repo
+- `docs/PITFALLS.md` — bugs we've hit, root causes, fixes (read before debugging)
+- `docs/COMMANDS.md` — docker + git command reference
+- `docs/MODEL_SETUP.md` — how to (re)populate `models/` from scratch
+
+## Example output
+
+![Example output 1](docs/images/example-output-1.webp)
+![Example output 2](docs/images/example-output-2.webp)
+![Example output 3](docs/images/example-output-3.webp)
