@@ -1,0 +1,19 @@
+# Model weights — large and re-downloadable, never commit
+models/
+
+# MIOpen kernel tuning cache — host/GPU-specific (tuned for this exact gfx1201 card),
+# regenerates automatically on first run, meaningless on a different machine/GPU
+# cache/
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Local test outputs from curl/testing
+*.png
+response.json
+
+# Editor/OS cruft
+.vscode/
+*.swp
+.DS_Store

@@ -1,0 +1,20 @@
+# Model weights — mounted as a volume at runtime, never needed in the build context
+models/
+
+# MIOpen cache — also volume-mounted, not baked into the image
+cache/
+
+# Git metadata — irrelevant to the image
+.git/
+.gitignore
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Local test outputs
+*.png
+response.json
+
+# Docs not needed inside the container
+*.md

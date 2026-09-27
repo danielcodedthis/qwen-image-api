@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Qwen Image</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; background: #111; color: #eee; }
+  textarea { width: 100%; height: 90px; padding: 10px; font-size: 15px; border-radius: 6px; border: 1px solid #444; background: #1c1c1c; color: #eee; resize: vertical; }
+  select, button { padding: 10px 16px; font-size: 15px; border-radius: 6px; border: 1px solid #444; margin-top: 10px; }
+  button { background: #3b82f6; color: white; border: none; cursor: pointer; }
+  button:disabled { background: #555; cursor: not-allowed; }
+  #status { margin-top: 12px; color: #aaa; min-height: 20px; }
+  img { max-width: 100%; margin-top: 16px; border-radius: 8px; display: block; }
+
+  #stats { display: flex; gap: 16px; margin-top: 20px; }
+  .stat-box { flex: 1; background: #1c1c1c; border: 1px solid #333; border-radius: 6px; padding: 10px 14px; }
+  .stat-label { font-size: 12px; color: #888; text-transform: uppercase; }
+  .stat-value { font-size: 18px; margin-top: 4px; }
+  .bar-track { background: #333; border-radius: 4px; height: 6px; margin-top: 6px; overflow: hidden; }
+  .bar-fill { background: #3b82f6; height: 100%; transition: width 0.3s; }
+
+  #logs { background: #0a0a0a; border: 1px solid #333; border-radius: 6px; padding: 10px; margin-top: 12px;
+          height: 160px; overflow-y: auto; font-family: monospace; font-size: 12px; color: #9ca3af; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+  <h2>Qwen Image Generator</h2>
+  <textarea id="prompt" placeholder="a red fox sitting in a snowy forest..."></textarea>
+  <br>
+  <select id="size">
+    <option value="1024x1024">1024x1024</option>
+    <option value="768x768">768x768</option>
+    <option value="1536x1536">1536x1536</option>
+  </select>
+  <button id="go">Generate</button>
+  <div id="status"></div>
+  <img id="result" style="display:none;">
+
+  <div id="stats">
+    <div class="stat-box">
+      <div class="stat-label">VRAM</div>
+      <div class="stat-value" id="vram-text">--</div>
+      <div class="bar-track"><div class="bar-fill" id="vram-bar" style="width:0%"></div></div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">System RAM</div>
+      <div class="stat-value" id="ram-text">--</div>
+      <div class="bar-track"><div class="bar-fill" id="ram-bar" style="width:0%"></div></div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-label">Progress</div>
+      <div class="stat-value" id="step-text">idle</div>
+      <div class="bar-track"><div class="bar-fill" id="step-bar" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div id="logs"></div>
+
+<script>
+const API_BASE = "http://localhost:8000";
+const goBtn = document.getElementById("go");
+const statusEl = document.getElementById("status");
+const img = document.getElementById("result");
+const logsEl = document.getElementById("logs");
+
+async function pollStatus() {
+  try {
+    const res = await fetch(API_BASE + "/status");
+    const data = await res.json();
+
+    if (!data.gpu.error) {
+      const pct = (data.gpu.used_gb / data.gpu.total_gb) * 100;
+      document.getElementById("vram-text").textContent = `${data.gpu.used_gb} / ${data.gpu.total_gb} GB`;
+      document.getElementById("vram-bar").style.width = pct + "%";
+    }
+    if (!data.ram.error) {
+      const pct = (data.ram.used_gb / data.ram.total_gb) * 100;
+      document.getElementById("ram-text").textContent = `${data.ram.used_gb} / ${data.ram.total_gb} GB`;
+      document.getElementById("ram-bar").style.width = pct + "%";
+    }
+
+    if (data.generating) {
+      document.getElementById("step-text").textContent = `${data.step} / ${data.total_steps}`;
+      document.getElementById("step-bar").style.width = (data.step / data.total_steps * 100) + "%";
+    } else {
+      document.getElementById("step-text").textContent = "idle";
+      document.getElementById("step-bar").style.width = "0%";
+    }
+
+    logsEl.textContent = data.logs.join("\n");
+    logsEl.scrollTop = logsEl.scrollHeight;
+  } catch (err) {
+    // API might not be up yet — fail silently, next poll will retry
+  }
+}
+setInterval(pollStatus, 1500);
+pollStatus();
+
+goBtn.addEventListener("click", async () => {
+  const prompt = document.getElementById("prompt").value.trim();
+  if (!prompt) { statusEl.textContent = "Enter a prompt first."; return; }
+
+  const size = document.getElementById("size").value;
+  goBtn.disabled = true;
+  img.style.display = "none";
+  const start = Date.now();
+  statusEl.textContent = "Generating... this can take a couple minutes.";
+
+  try {
+    const res = await fetch(API_BASE + "/v1/images/generations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, size })
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Server error ${res.status}: ${text}`);
+    }
+    const data = await res.json();
+    img.src = "data:image/png;base64," + data.data[0].b64_json;
+    img.style.display = "block";
+    const secs = ((Date.now() - start) / 1000).toFixed(1);
+    statusEl.textContent = `Done in ${secs}s.`;
+  } catch (err) {
+    statusEl.textContent = "Failed: " + err.message;
+  } finally {
+    goBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

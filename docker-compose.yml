@@ -1,0 +1,38 @@
+services:
+  qwen-image-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qwen-image-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./cache/miopen:/root/.config/miopen
+    environment:
+      - PYTORCH_CUDA_ALLOC_CONF=garbage_collection_threshold:0.6,max_split_size_mb:512
+      # - MIOPEN_FIND_ENFORCE=3 # forces a full kernel search-and-compile on first run (slower first request) so it actually populates the cache instead of settling for a fast-but-unoptimized fallback. Once ./cache/miopen/gfx1201_32.ukdb exists and looks populated, remove that env var — leaving it set forces re-search every time, which defeats the purpose.
+    ipc: host
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    group_add:
+      - video
+      - "987"  # getent group render | cut -d: -f3
+    restart: "no"
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp=unconfined
+    shm_size: "8g"
+
+  qwen-image-ui:
+    image: nginx:alpine
+    container_name: qwen-image-ui
+    ports:
+      - "3000:80"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+    depends_on:
+      - qwen-image-api
+    restart: "no"
