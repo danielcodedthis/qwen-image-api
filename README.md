@@ -8,11 +8,11 @@ A self-hosted image generation API powered by Qwen-Image-2.1, running on AMD ROC
 
 ```
 ┌─────────────────┐      ┌──────────────────────┐
-│  qwen-image-ui   │      │   qwen-image-api      │
-│  (nginx, :3000)  │─────▶│   (FastAPI, :8000)    │
-│  prompt/preview  │      │   diffusers pipeline  │
-└─────────────────┘      │   on ROCm/gfx1201      │
-                          └──────────────────────┘
+│  qwen-image-ui  │      │   qwen-image-api     │
+│  (nginx, :3000) │────▶│   (FastAPI, :8000)   │
+│  prompt/preview │      │   diffusers pipeline │
+└─────────────────┘      │   on ROCm/gfx1201    │
+                         └──────────────────────┘
 ```
 
 - **`qwen-image-api`** — FastAPI server wrapping the diffusers `QwenImage21Pipeline`.
@@ -50,9 +50,7 @@ its kernel cache for your specific GPU on first run and reuses it afterward
 
 ![UI screenshot](docs/images/ui-screenshot.webp)
 
-*(Add a screenshot: take one of the running UI at `localhost:3000`, then convert
-it to WebP with `cwebp screenshot.png -o docs/images/ui-screenshot.webp -q 80`
-— install `libwebp` first if `cwebp` isn't available.)*
+*(Screenshot converted to WebP with `cwebp screenshot.png -o docs/images/ui-screenshot.webp -q 100`)*
 
 1. Type a prompt in the text box.
 2. Pick a resolution (`1024x1024` is the tested default).
@@ -89,4 +87,10 @@ Request-level settings (`server/schemas.py`):
 
 ![Example output 1](docs/images/example-output-1.webp)
 ![Example output 2](docs/images/example-output-2.webp)
+```
+Night street portrait of a stylish young woman with long dark hair wearing a loose dark denim jacket and black top, standing on a city sidewalk beside a red and white traffic cone, direct camera flash illuminating her face and jacket, glossy skin highlights, warm yellow streetlights and cars in the background, softly blurred urban buildings and pedestrians, cinematic nighttime atmosphere, street photography style, high detail, realistic lighting, 35mm flash photography, shallow depth of field.
+```
 ![Example output 3](docs/images/example-output-3.webp)
+```
+A professional full-body shot of a person sitting gracefully inside a large circular wooden frame ringed with a soft pink neon glow, holding a small bouquet of daisies in their lap. The person wears a cozy pastel pink and white sweatshirt, white pants, white socks, and chunky white sneakers. The setting is a cozy indoor floral sanctuary, decorated with hanging green ivy and delicate blossoms, with a round glowing white globe lamp on the left casting warm, diffused light. The background is filled with blurred colorful flowers, creating a soft dreamy bokeh effect with cinematic lighting.
+```
