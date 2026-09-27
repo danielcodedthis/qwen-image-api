@@ -64,26 +64,56 @@ its kernel cache for your specific GPU on first run and reuses it afterward
    step progress while it runs (usually 1–3 minutes depending on resolution).
 4. The finished image renders inline once done.
 
-## Server settings (`server/pipeline.py`)
+## Configuration
 
-These are the knobs most likely to need adjusting on different hardware:
+Most tunable settings live in `config.yaml` (project root) and apply on
+container restart — no rebuild needed:
+
+```yaml
+memory:
+  gpu_max_memory: "16GiB"   # VRAM budget for pipeline component placement
+  cpu_max_memory: "40GiB"   # RAM budget for whatever doesn't fit on GPU
+
+generation:
+  total_steps: 40           # denoising steps — higher = better quality, slower
+  max_pixels: 1638400       # requests above this (width × height) are rejected
+```
+
+- **`gpu_max_memory`** controls which pipeline components (transformer, text
+  encoder, VAE) get placed on GPU vs. spilled to CPU RAM at load time. It does
+  *not* cap runtime memory during generation — that scales with resolution,
+  which is what `max_pixels` guards against. Counterintuitively, a **lower**
+  `gpu_max_memory` can enable **larger** images: fewer resident weights leaves
+  more of the card free for the activation spike that happens during
+  denoising and VAE decode at higher resolutions.
+- **`total_steps`** is passed straight to the pipeline as
+  `num_inference_steps`.
+- **`max_pixels`** rejects oversized requests with a clean `400` before they
+  reach the GPU, instead of risking an uncontrolled VRAM spike.
+
+```bash
+nano config.yaml
+docker compose restart qwen-image-api
+```
+
+A few settings aren't config-driven yet and still live in `server/pipeline.py`:
 
 | Setting | What it controls | Notes |
 |---|---|---|
 | `quant_mapping` | Which pipeline components run in int8 (`transformer`, `text_encoder`) | Trades VRAM for image fidelity — see `docs/PITFALLS.md` |
-| `max_memory={0: "26GiB", "cpu": "40GiB"}` | GPU VRAM budget before spilling components to system RAM | Push higher if your card has more headroom; watch for driver resets if pushed too far |
 | `pipe.vae.enable_slicing()` | Cheap memory optimization, minimal quality cost | Keep enabled |
-| `pipe.vae.enable_tiling()` | Currently **disabled** | Caused visible purple seam artifacts — only re-enable if you hit VAE-decode OOM and can't free VRAM another way |
+| `pipe.vae.enable_tiling()` | Currently disabled | Caused visible seam artifacts — only re-enable if you hit VAE-decode OOM and can't free VRAM another way |
 
 Request-level settings (`server/schemas.py`):
 
 | Field | Default | Notes |
 |---|---|---|
-| `size` | `"1024x1024"` | Passed straight through as width x height |
+| `size` | `"1024x1024"` | Passed straight through as width × height |
 | `n`, `response_format` | unused placeholders | Present for OpenAI API compatibility, not implemented |
 
 ## Docs
 
+- `config.yaml` — memory budget and generation settings, edit and restart to apply
 - `CLAUDE.md` — context for AI assistants working on this repo
 - `docs/PITFALLS.md` — bugs we've hit, root causes, fixes (read before debugging)
 - `docs/COMMANDS.md` — docker + git command reference
@@ -92,9 +122,12 @@ Request-level settings (`server/schemas.py`):
 ## Example output
 
 ![Example output 1](docs/images/example-output-1.webp)
-![Example output 2](docs/images/example-output-2.webp)
 ```
 Night street portrait of a stylish young woman with long dark hair wearing a loose dark denim jacket and black top, standing on a city sidewalk beside a red and white traffic cone, direct camera flash illuminating her face and jacket, glossy skin highlights, warm yellow streetlights and cars in the background, softly blurred urban buildings and pedestrians, cinematic nighttime atmosphere, street photography style, high detail, realistic lighting, 35mm flash photography, shallow depth of field.
+```
+![Example output 2](docs/images/example-output-2.webp)
+```
+Fashion editorial portrait of a young European woman in her twenties sitting confidently in a plush over-sized pink faux-fur armchair against a soft pastel pink background; she wears a fluffy pink jacket, white trousers and white lace-up boots, seated with legs crossed and a calm confident expression; surrounded symmetrically by multiple fluffy long-haired cats in cream, gray and white tones perched on the chair arms, backrest and floor around her; highly stylized monochromatic pink aesthetic, soft studio lighting, clean background, luxurious textures in fur fabric and cat fur, centered composition, fashion magazine style, high detail, shallow depth of field, ultra-sharp textures, high dynamic range, 8k ultra-photorealism, masterpiece quality.
 ```
 ![Example output 3](docs/images/example-output-3.webp)
 ```
