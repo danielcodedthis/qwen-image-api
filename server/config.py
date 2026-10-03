@@ -14,7 +14,10 @@ DEFAULTS = {
     },
     "ui": {
         "available_sizes": ["512x512", "768x768", "1024x1024"],
-    }
+    },
+    "startup": {
+        "lazy_load": False,
+    },
 }
 
 

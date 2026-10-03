@@ -48,5 +48,15 @@ ui:
     - "768x768"
     - "768x1280"
     - "1024x1280"
+    - "1280x768"
     - "1280x1280"
     - "1536x1536"
+
+startup:
+  # false: model loads immediately on container start — slower
+  # startup, but every request is equally fast.
+  # true: model stays unloaded until the first generation request arrives —
+  # the container starts instantly and uses no GPU memory while idle, but the
+  # first request after each startup pays the full load time before it even
+  # begins generating.
+  lazy_load: true

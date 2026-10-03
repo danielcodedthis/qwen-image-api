@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from config import config
 
 from schemas import ImageRequest
-from pipeline import pipe
+from pipeline import get_pipe, is_loaded
 from monitoring import (
     logger,
     generation_state,
@@ -20,6 +20,9 @@ from monitoring import (
     get_ram_stats,
     get_recent_logs,
 )
+
+if not config["startup"]["lazy_load"]:
+    get_pipe()  # eager load at startup, same behavior as before
 
 OUTPUT_DIR = "/app/output"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -41,6 +44,7 @@ app.add_middleware(
 def get_status():
     return {
         "generating": generation_state["active"],
+        "model_loaded": is_loaded(),
         "step": generation_state["step"],
         "total_steps": generation_state["total_steps"],
         "gpu": get_gpu_stats(),
@@ -70,6 +74,7 @@ def generate_image(req: ImageRequest):
             detail=f"Resolution {w}x{h} ({w*h} px) exceeds max_pixels ({MAX_PIXELS}) in config.yaml.",
         )
 
+    pipe = get_pipe()  # loads here on first call if lazy_load is true
     logger.info(f"Generating: '{req.prompt[:60]}' size={w}x{h}")
     generation_state.update({"active": True, "step": 0, "total_steps": TOTAL_STEPS})
 
