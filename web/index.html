@@ -13,6 +13,11 @@
   button:disabled { background: #555; cursor: not-allowed; }
   #status { margin-top: 12px; color: #aaa; min-height: 20px; }
   #status.warn { color: #f59e0b; }
+  #timing { margin-top: 6px; min-height: 20px; color: #9ca3af; }
+  #timing.ok { color: #34d399; }
+  #timing.err { color: #f87171; }
+  #alerts { margin-top: 10px; }
+  .alert { background: #3b1d1d; border: 1px solid #7f1d1d; color: #fca5a5; border-radius: 6px; padding: 8px 12px; margin-top: 6px; font-size: 14px; }
   img { max-width: 100%; margin-top: 16px; border-radius: 8px; display: block; }
 
   #stats { display: flex; gap: 16px; margin-top: 20px; }
@@ -33,6 +38,8 @@
   <select id="size" disabled></select>
   <button id="go" disabled>Generate</button>
   <div id="status" class="warn">Waiting for the API to start (loading model)...</div>
+  <div id="timing"></div>
+  <div id="alerts"></div>
   <img id="result" style="display:none;">
 
   <div id="stats">
@@ -61,6 +68,8 @@ const goBtn = document.getElementById("go");
 const statusEl = document.getElementById("status");
 const img = document.getElementById("result");
 const logsEl = document.getElementById("logs");
+const timingEl = document.getElementById("timing");
+const alertsEl = document.getElementById("alerts");
 
 let apiReady = false;
 let generating = false;
@@ -86,6 +95,14 @@ async function pollStatus() {
       statusEl.textContent = "";
     }
     goBtn.disabled = generating; // only generating (not readiness) controls this now
+
+    alertsEl.innerHTML = "";
+    (data.warnings || []).forEach(msg => {
+      const div = document.createElement("div");
+      div.className = "alert";
+      div.textContent = "⚠ " + msg;
+      alertsEl.appendChild(div);
+    });
 
     if (!data.gpu.error) {
       const pct = (data.gpu.used_gb / data.gpu.total_gb) * 100;
@@ -146,15 +163,17 @@ loadSizes();
 
 goBtn.addEventListener("click", async () => {
   const prompt = document.getElementById("prompt").value.trim();
-  if (!prompt) { statusEl.textContent = "Enter a prompt first."; return; }
+  if (!prompt) { timingEl.className = "err"; timingEl.textContent = "Enter a prompt first."; return; }
 
   const size = document.getElementById("size").value;
   generating = true;
   goBtn.disabled = true;
   img.style.display = "none";
   const start = Date.now();
-  statusEl.classList.remove("warn");
-  statusEl.textContent = "Generating... this can take a couple minutes.";
+  timingEl.className = "";
+  const tick = () => { timingEl.textContent = `Generating... ${((Date.now() - start) / 1000).toFixed(0)}s elapsed`; };
+  tick();
+  const ticker = setInterval(tick, 1000);
 
   try {
     const res = await fetch(API_BASE + "/v1/images/generations", {
@@ -164,16 +183,23 @@ goBtn.addEventListener("click", async () => {
     });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`Server error ${res.status}: ${text}`);
+      let detail = text;
+      try { detail = JSON.parse(text).detail || text; } catch (e) {}
+      throw new Error(`${res.status}: ${detail}`);
     }
     const data = await res.json();
     img.src = "data:image/png;base64," + data.data[0].b64_json;
     img.style.display = "block";
     const secs = ((Date.now() - start) / 1000).toFixed(1);
-    statusEl.textContent = `Done in ${secs}s.`;
+    const genSecs = data.generation_seconds != null ? ` (server: ${data.generation_seconds}s)` : "";
+    timingEl.className = "ok";
+    timingEl.textContent = `Done in ${secs}s total${genSecs}.`;
   } catch (err) {
-    statusEl.textContent = "Failed: " + err.message;
+    const secs = ((Date.now() - start) / 1000).toFixed(1);
+    timingEl.className = "err";
+    timingEl.textContent = `Failed after ${secs}s — ${err.message}`;
   } finally {
+    clearInterval(ticker);
     generating = false;
     goBtn.disabled = !apiReady;
   }

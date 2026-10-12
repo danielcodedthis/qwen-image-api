@@ -5,8 +5,11 @@ CONFIG_PATH = os.environ.get("CONFIG_PATH", "/app/config.yaml")
 
 DEFAULTS = {
     "memory": {
+        "run_on_ram": False,
+        # Int8 weight-only quantization of the transformer.
+        "quantize_transformer": True,
         "gpu_max_memory": "22GiB",
-        "cpu_max_memory": "40GiB",
+        "cpu_max_memory": "80GiB",
     },
     "generation": {
         "total_steps": 40,
@@ -17,6 +20,11 @@ DEFAULTS = {
     },
     "startup": {
         "lazy_load": False,
+    },
+    "monitoring": {
+        # Log + show a warning in the UI when usage crosses these percentages.
+        "vram_warn_percent": 92,
+        "ram_warn_percent": 90,
     },
 }
 

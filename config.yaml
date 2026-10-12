@@ -5,6 +5,13 @@
 # copied into the image.
 
 memory:
+  # Run EVERYTHING from system RAM on the CPU (GPU is not used at all).
+  run_on_ram: false
+
+  # Int8 weight-only quantization of the transformer. Saves memory, 
+  # but it can be slower than plain bf16; 
+  quantize_transformer: false
+
   # VRAM budget for pipeline component placement (device_map="balanced"), set
   # at LOAD TIME. Components too large for this budget (the text encoder, in
   # our setup) get placed on CPU RAM permanently instead of GPU.
@@ -17,20 +24,19 @@ memory:
   # value keeps more weights GPU-resident (marginally faster) but leaves less
   # room for that spike.
   #
-  # 16GiB is the current tested value — enables 1280x1280, but that
-  # generation peaked at ~31GB out of the card's ~31.86GB physical ceiling.
-  # That is NOT comfortable headroom — it's proof it barely fits once, not a
-  # safe margin. Treat 1280x1280 as the tested ceiling, not a floor to build
-  # above without re-testing.
+  # 16GiB is the current tested safe minimum value
   gpu_max_memory: "16GiB"
 
   # System RAM budget for whatever spills off the GPU.
-  cpu_max_memory: "40GiB"
+  cpu_max_memory: "80GiB"
 
 generation:
   # Denoising steps. Higher = better quality, slower. 40 is the diffusers
   # default for Qwen-Image-2.1.
-  total_steps: 40
+  # 20 (default)
+  # 15 (good and fast)
+  # 10 (totally ok, minimum)
+  total_steps: 10
 
   # Requests above this pixel count (width * height) are rejected with a
   # clean 400 error. 1638400 = 1280x1280, tested stable at gpu_max_memory:
@@ -50,6 +56,7 @@ ui:
     - "1024x1280"
     - "1280x768"
     - "1280x1280"
+    # 2359296
     - "1536x1536"
 
 startup:
@@ -60,3 +67,9 @@ startup:
   # first request after each startup pays the full load time before it even
   # begins generating.
   lazy_load: true
+
+monitoring:
+  # A memory warning is logged (and shown in the web UI) when usage crosses
+  # these percentages. Warnings are logged once per crossing, not every step.
+  vram_warn_percent: 92
+  ram_warn_percent: 90

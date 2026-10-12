@@ -21,6 +21,3 @@ output/
 
 # Environment variables
 .env
-
-# Other
-docs/PROMPTS.md
