@@ -10,7 +10,7 @@ memory:
 
   # Int8 weight-only quantization of the transformer. Saves memory, 
   # but it can be slower than plain bf16; 
-  quantize_transformer: false
+  quantize_transformer: true
 
   # VRAM budget for pipeline component placement (device_map="balanced"), set
   # at LOAD TIME. Components too large for this budget (the text encoder, in
@@ -36,7 +36,18 @@ generation:
   # 20 (default)
   # 15 (good and fast)
   # 10 (totally ok, minimum)
-  total_steps: 10
+  total_steps: 20
+
+  # True classifier-free guidance. Higher = follows the prompt (and the
+  # negative prompt) more strongly. 1.0 = OFF (no negative prompt is used and
+  # steps cost half as much). Anything above 1.0 runs the transformer twice
+  # per step, so generation takes roughly 2x as long. 4.0 is the Qwen-Image
+  # reference value.
+  true_cfg_scale: 1.0
+
+  # Default negative prompt, pre-filled in the web UI (the UI field can
+  # override it per request). Only used when true_cfg_scale > 1.
+  negative_prompt: "deformed hands, extra fingers, fused fingers, missing fingers, deformed feet, extra toes, bad anatomy, blurry, low quality"
 
   # Requests above this pixel count (width * height) are rejected with a
   # clean 400 error. 1638400 = 1280x1280, tested stable at gpu_max_memory:
@@ -51,7 +62,9 @@ ui:
     - "1024x1024"
     - "512x512"
     - "512x768"
+    - "512x1024"
     - "768x768"
+    - "768x1024"
     - "768x1280"
     - "1024x1280"
     - "1280x768"

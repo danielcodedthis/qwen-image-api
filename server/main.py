@@ -35,6 +35,8 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 TOTAL_STEPS = config["generation"]["total_steps"]
 MAX_PIXELS = config["generation"]["max_pixels"]
 RUN_ON_RAM = config["memory"]["run_on_ram"]
+TRUE_CFG_SCALE = float(config["generation"]["true_cfg_scale"])
+DEFAULT_NEGATIVE = config["generation"]["negative_prompt"] or ""
 
 app = FastAPI()
 
@@ -75,6 +77,8 @@ def get_public_config():
     return {
         "available_sizes": config["ui"]["available_sizes"],
         "max_pixels": MAX_PIXELS,
+        "negative_prompt": DEFAULT_NEGATIVE,
+        "true_cfg_scale": TRUE_CFG_SCALE,
     }
 
 
@@ -101,7 +105,21 @@ def generate_image(req: ImageRequest):
             raise HTTPException(status_code=503, detail="Out of memory while loading the model. See logs.")
         raise
 
-    logger.info(f"Generating: '{req.prompt[:60]}' size={w}x{h}")
+    # True CFG only runs when scale > 1 AND a negative prompt is supplied
+    # (a single space is the standard "empty" negative prompt).
+    cfg_kwargs = {}
+    if TRUE_CFG_SCALE > 1:
+        negative = req.negative_prompt if req.negative_prompt is not None else DEFAULT_NEGATIVE
+        cfg_kwargs = {
+            "true_cfg_scale": TRUE_CFG_SCALE,
+            "negative_prompt": negative.strip() or " ",
+        }
+        cfg_info = f"cfg={TRUE_CFG_SCALE} negative='{negative.strip()[:60]}'"
+    else:
+        cfg_info = "cfg=off"
+
+    prompt_preview = " ".join(req.prompt.split())[:60]
+    logger.info(f"Generating: '{prompt_preview}' size={w}x{h} {cfg_info}")
     start_generation(TOTAL_STEPS)
 
     try:
@@ -112,6 +130,7 @@ def generate_image(req: ImageRequest):
                 height=h,
                 num_inference_steps=TOTAL_STEPS,
                 callback_on_step_end=progress_callback,
+                **cfg_kwargs,
             ).images[0]
 
         gen_secs = time.time() - started

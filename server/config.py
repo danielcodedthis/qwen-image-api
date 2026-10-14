@@ -5,6 +5,7 @@ CONFIG_PATH = os.environ.get("CONFIG_PATH", "/app/config.yaml")
 
 DEFAULTS = {
     "memory": {
+        # True = keep the whole pipeline in system RAM and run on CPU (no GPU use).
         "run_on_ram": False,
         # Int8 weight-only quantization of the transformer.
         "quantize_transformer": True,
@@ -14,6 +15,8 @@ DEFAULTS = {
     "generation": {
         "total_steps": 40,
         "max_pixels": 1024 * 1024,
+        "true_cfg_scale": 1.0,  # 1.0 = off
+        "negative_prompt": "",
     },
     "ui": {
         "available_sizes": ["512x512", "768x768", "1024x1024"],

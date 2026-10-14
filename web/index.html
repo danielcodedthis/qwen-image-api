@@ -2,208 +2,569 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Qwen Image</title>
 <!-- Source: svgrepo.com (License: CC0 (Creative Commons Zero), by SVG Repo) -->
 <link rel="icon" href="favicon.svg">
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; background: #111; color: #eee; }
-  textarea { width: 100%; height: 90px; padding: 10px; font-size: 15px; border-radius: 6px; border: 1px solid #444; background: #1c1c1c; color: #eee; resize: vertical; }
-  select, button { padding: 10px 16px; font-size: 15px; border-radius: 6px; border: 1px solid #444; margin-top: 10px; }
-  button { background: #3b82f6; color: white; border: none; cursor: pointer; }
-  button:disabled { background: #555; cursor: not-allowed; }
-  #status { margin-top: 12px; color: #aaa; min-height: 20px; }
-  #status.warn { color: #f59e0b; }
-  #timing { margin-top: 6px; min-height: 20px; color: #9ca3af; }
-  #timing.ok { color: #34d399; }
-  #timing.err { color: #f87171; }
-  #alerts { margin-top: 10px; }
-  .alert { background: #3b1d1d; border: 1px solid #7f1d1d; color: #fca5a5; border-radius: 6px; padding: 8px 12px; margin-top: 6px; font-size: 14px; }
-  img { max-width: 100%; margin-top: 16px; border-radius: 8px; display: block; }
+  :root {
+    color-scheme: dark;
+    --bg: #17181b;
+    --panel: #1e2024;
+    --field: #25272c;
+    --line: #2f3238;
+    --text: #e7e8ea;
+    --muted: #8d929b;
+    --accent: #4fb6a8;
+    --accent-strong: #6fcfc1;
+    --on-accent: #0f1f1d;
+    --ok: #5cc98f;
+    --warn: #e3a64a;
+    --err: #ee7b73;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 "Segoe UI Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .app { max-width: 1760px; margin: 0 auto; padding: 18px 24px 28px; }
 
-  #stats { display: flex; gap: 16px; margin-top: 20px; }
-  .stat-box { flex: 1; background: #1c1c1c; border: 1px solid #333; border-radius: 6px; padding: 10px 14px; }
-  .stat-label { font-size: 12px; color: #888; text-transform: uppercase; }
-  .stat-value { font-size: 18px; margin-top: 4px; }
-  .bar-track { background: #333; border-radius: 4px; height: 6px; margin-top: 6px; overflow: hidden; }
-  .bar-fill { background: #3b82f6; height: 100%; transition: width 0.3s; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+  h1 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--muted); font-size: 12.5px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .chip.ok .dot { background: var(--ok); }
+  .chip.warn .dot { background: var(--warn); }
+  .chip.err .dot { background: var(--err); }
 
-  #logs { background: #0a0a0a; border: 1px solid #333; border-radius: 6px; padding: 10px; margin-top: 12px;
-          height: 160px; overflow-y: auto; font-family: monospace; font-size: 12px; color: #9ca3af; white-space: pre-wrap; }
+  .layout { display: grid; grid-template-columns: 440px minmax(0, 1fr); gap: 20px; align-items: start; }
+
+  /* ---------- controls ---------- */
+  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .section { padding: 16px 18px; border-top: 1px solid var(--line); }
+  .section:first-child { border-top: 0; }
+  .label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .label { font-size: 13px; font-weight: 600; }
+  .hint { font-size: 12.5px; color: var(--muted); }
+  textarea {
+    width: 100%; margin-top: 8px; padding: 10px 12px; resize: vertical;
+    background: var(--field); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+    font: 13px/1.5 ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  #prompt { height: 280px; min-height: 120px; }
+  #neg { height: 84px; min-height: 52px; }
+  textarea:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  details > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary .label::before { content: "▸"; display: inline-block; width: 14px; color: var(--muted); transition: transform .15s; }
+  details[open] > summary .label::before { transform: rotate(90deg); }
+  .link-btn { background: none; border: 0; padding: 0; color: var(--accent); font-size: 12.5px; cursor: pointer; }
+  .link-btn:hover { color: var(--accent-strong); text-decoration: underline; }
+
+  .sizes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .size {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px; text-align: left;
+    background: var(--field); color: var(--text); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font: inherit;
+  }
+  .size:hover:not(:disabled) { border-color: #444a53; }
+  .size[aria-pressed="true"] { border-color: var(--accent); background: #1f2d2c; }
+  .size:disabled { opacity: .4; cursor: not-allowed; }
+  .size .box { flex: 0 0 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
+  .size .box i { display: block; border: 1.5px solid var(--muted); border-radius: 2px; }
+  .size[aria-pressed="true"] .box i { border-color: var(--accent); }
+  .size .dims { display: block; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .size .ratio { display: block; font-size: 11.5px; color: var(--muted); }
+
+  #go {
+    width: 100%; height: 46px; border: 0; border-radius: 9px; cursor: pointer;
+    background: var(--accent); color: var(--on-accent); font: inherit; font-size: 15px; font-weight: 650;
+  }
+  #go:hover:not(:disabled) { background: var(--accent-strong); }
+  #go:disabled { background: #3a3d44; color: #8d929b; cursor: not-allowed; }
+  #go-hint { margin-top: 8px; min-height: 18px; font-size: 12.5px; color: var(--muted); text-align: center; }
+
+  .meters { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .meter .top { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--muted); }
+  .meter .val { color: var(--text); font-variant-numeric: tabular-nums; }
+  .track { height: 5px; margin-top: 6px; border-radius: 3px; background: #33363c; overflow: hidden; }
+  .fill { height: 100%; width: 0; background: var(--accent); transition: width .4s, background-color .4s; }
+  .fill.warn { background: var(--warn); }
+  .fill.err { background: var(--err); }
+
+  #logs {
+    margin-top: 10px; height: 200px; overflow-y: auto; padding: 10px 12px;
+    background: #141518; border: 1px solid var(--line); border-radius: 8px;
+    font: 12px/1.5 ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace; color: #9aa0aa; white-space: pre-wrap; word-break: break-word;
+  }
+  #logs .log-warn { color: var(--warn); }
+  #logs .log-err { color: var(--err); }
+
+  /* ---------- stage ---------- */
+  .stage {
+    position: sticky; top: 18px; display: flex; flex-direction: column; gap: 12px;
+    height: calc(100vh - 100px); min-height: 520px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px;
+  }
+  #alerts:empty { display: none; }
+  .alert { padding: 9px 12px; margin-bottom: 6px; border-radius: 8px; background: #3a2220; border: 1px solid #6b2f2b; color: #f4b3ad; font-size: 13px; }
+  .canvas {
+    position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+    background: #141518; border-radius: 8px; overflow: hidden;
+  }
+  #result { max-width: 100%; max-height: 100%; object-fit: contain; transition: opacity .2s; }
+  .canvas.busy #result { opacity: .25; }
+  .empty { max-width: 340px; text-align: center; color: var(--muted); padding: 0 20px; }
+  .empty strong { display: block; color: var(--text); font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+
+  .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .progress-box { width: min(420px, 82%); }
+  .progress-title { font-size: 16px; font-weight: 600; }
+  .progress-bar { height: 8px; margin: 12px 0 10px; border-radius: 4px; background: #33363c; overflow: hidden; }
+  .progress-bar > div { height: 100%; width: 0; background: var(--accent); border-radius: 4px; transition: width .6s linear; }
+  .progress-bar.indeterminate > div { width: 35%; animation: slide 1.4s ease-in-out infinite; }
+  @keyframes slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
+  .progress-meta { display: flex; gap: 18px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; flex-wrap: wrap; }
+  .meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .meta .ok { color: var(--ok); }
+  .meta .err { color: var(--err); }
+  .actions { display: flex; gap: 8px; }
+  .btn {
+    padding: 6px 14px; border: 1px solid var(--line); border-radius: 7px; background: var(--field); color: var(--text);
+    font: inherit; font-size: 13px; text-decoration: none; cursor: pointer;
+  }
+  .btn:hover { border-color: #4a505a; }
+
+  .history { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+  .history:empty { display: none; }
+  .thumb { flex: 0 0 auto; height: 64px; padding: 0; border: 2px solid transparent; border-radius: 6px; background: none; cursor: pointer; overflow: hidden; }
+  .thumb img { height: 100%; display: block; }
+  .thumb[aria-current="true"] { border-color: var(--accent); }
+
+  @media (max-width: 1100px) {
+    .layout { grid-template-columns: 1fr; }
+    .stage { position: static; height: auto; min-height: 0; }
+    .canvas { min-height: 60vh; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .progress-bar.indeterminate > div { animation: none; width: 100%; opacity: .5; }
+    * { transition: none !important; }
+  }
 </style>
 </head>
 <body>
-  <h2>Qwen Image Generator</h2>
-  <textarea id="prompt" placeholder="a red fox sitting in a snowy forest..."></textarea>
-  <br>
-  <select id="size" disabled></select>
-  <button id="go" disabled>Generate</button>
-  <div id="status" class="warn">Waiting for the API to start (loading model)...</div>
-  <div id="timing"></div>
-  <div id="alerts"></div>
-  <img id="result" style="display:none;">
+<div class="app">
+  <header>
+    <h1>Qwen Image</h1>
+    <div class="chips">
+      <span class="chip" id="chip-api"><span class="dot"></span><span class="t">API</span></span>
+      <span class="chip" id="chip-model"><span class="dot"></span><span class="t">Model</span></span>
+      <span class="chip" id="chip-mode"><span class="dot"></span><span class="t">Mode</span></span>
+    </div>
+  </header>
 
-  <div id="stats">
-    <div class="stat-box">
-      <div class="stat-label">VRAM</div>
-      <div class="stat-value" id="vram-text">--</div>
-      <div class="bar-track"><div class="bar-fill" id="vram-bar" style="width:0%"></div></div>
+  <div class="layout">
+    <!-- ================= controls ================= -->
+    <div class="controls">
+      <div class="section">
+        <div class="label-row">
+          <label class="label" for="prompt">Prompt</label>
+          <span class="hint">Ctrl+Enter to generate</span>
+        </div>
+        <textarea id="prompt" spellcheck="false" placeholder="a red fox sitting in a snowy forest..."></textarea>
+      </div>
+
+      <div class="section">
+        <details id="neg-details">
+          <summary>
+            <span class="label">Negative prompt</span>
+            <span class="hint" id="cfg-hint"></span>
+          </summary>
+          <textarea id="neg" spellcheck="false" placeholder="things to avoid"></textarea>
+          <div style="margin-top:6px;text-align:right"><button class="link-btn" id="neg-reset" type="button">Reset to config default</button></div>
+        </details>
+      </div>
+
+      <div class="section">
+        <div class="label-row">
+          <span class="label">Size</span>
+          <span class="hint" id="size-hint"></span>
+        </div>
+        <div class="sizes" id="sizes"></div>
+      </div>
+
+      <div class="section">
+        <button id="go" type="button" disabled>Generate</button>
+        <div id="go-hint">Waiting for the API to start...</div>
+      </div>
+
+      <div class="section">
+        <div class="meters">
+          <div class="meter">
+            <div class="top"><span>VRAM</span><span class="val" id="vram-text">--</span></div>
+            <div class="track"><div class="fill" id="vram-bar"></div></div>
+          </div>
+          <div class="meter">
+            <div class="top"><span>System RAM</span><span class="val" id="ram-text">--</span></div>
+            <div class="track"><div class="fill" id="ram-bar"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <details open>
+          <summary><span class="label">Server log</span></summary>
+          <div id="logs"></div>
+        </details>
+      </div>
     </div>
-    <div class="stat-box">
-      <div class="stat-label">System RAM</div>
-      <div class="stat-value" id="ram-text">--</div>
-      <div class="bar-track"><div class="bar-fill" id="ram-bar" style="width:0%"></div></div>
-    </div>
-    <div class="stat-box">
-      <div class="stat-label">Progress</div>
-      <div class="stat-value" id="step-text">idle</div>
-      <div class="bar-track"><div class="bar-fill" id="step-bar" style="width:0%"></div></div>
-    </div>
+
+    <!-- ================= stage ================= -->
+    <section class="stage" aria-label="Result">
+      <div id="alerts"></div>
+      <div class="canvas" id="canvas">
+        <div class="empty" id="empty">
+          <strong>No image yet</strong>
+          Write a prompt, pick a size and press Generate.
+        </div>
+        <img id="result" alt="Generated image" hidden>
+        <div class="overlay" id="overlay" hidden>
+          <div class="progress-box">
+            <div class="progress-title" id="progress-title">Starting...</div>
+            <div class="progress-bar" id="progress-bar"><div id="progress-fill"></div></div>
+            <div class="progress-meta">
+              <span id="progress-step"></span>
+              <span id="progress-elapsed"></span>
+              <span id="progress-eta"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <div class="meta" id="meta"></div>
+        <div class="actions">
+          <a class="btn" id="open-full" target="_blank" rel="noopener" hidden>Open full size</a>
+          <a class="btn" id="download" hidden>Download PNG</a>
+        </div>
+      </div>
+      <div class="history" id="history"></div>
+    </section>
   </div>
-
-  <div id="logs"></div>
+</div>
 
 <script>
-const API_BASE = "http://localhost:8000";
-const goBtn = document.getElementById("go");
-const statusEl = document.getElementById("status");
-const img = document.getElementById("result");
-const logsEl = document.getElementById("logs");
-const timingEl = document.getElementById("timing");
-const alertsEl = document.getElementById("alerts");
+const API_BASE = `http://${location.hostname || "localhost"}:8000`;
+const $ = id => document.getElementById(id);
 
-let apiReady = false;
-let generating = false;
-let sizesLoaded = false;
+// ---- tiny localStorage wrapper (a long JSON prompt survives a refresh) ----
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
 
+// ---- state ----
+let apiReady = false, modelLoaded = false, runOnRam = false;
+let generating = false, startTs = 0;
+let step = 0, totalSteps = 0, firstStepTs = null, firstStepNo = 0;
+let sizesLoaded = false, selectedSize = null, defaultNeg = "";
+const history = [];
+
+// ---- prompt fields ----
+const promptEl = $("prompt"), negEl = $("neg");
+promptEl.value = store.get("qwen.prompt") || "";
+promptEl.addEventListener("input", () => store.set("qwen.prompt", promptEl.value));
+negEl.addEventListener("input", () => store.set("qwen.neg", negEl.value));
+$("neg-reset").addEventListener("click", () => { negEl.value = defaultNeg; store.set("qwen.neg", defaultNeg); });
+[promptEl, negEl].forEach(el => el.addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); generate(); }
+}));
+
+// ---- status chips / controls ----
+function setChip(id, state, text) {
+  const el = $(id);
+  el.className = "chip" + (state ? " " + state : "");
+  el.querySelector(".t").textContent = text;
+}
+function renderChips() {
+  setChip("chip-api", apiReady ? "ok" : "err", apiReady ? "API online" : "API offline");
+  setChip("chip-model", !apiReady ? "" : modelLoaded ? "ok" : "warn",
+          !apiReady ? "Model unknown" : modelLoaded ? "Model loaded" : "Model not loaded");
+  setChip("chip-mode", "", !apiReady ? "Mode unknown" : runOnRam ? "Running on RAM (CPU)" : "GPU with CPU offload");
+}
+function renderControls() {
+  $("go").disabled = !apiReady || !sizesLoaded || generating;
+  $("go").textContent = generating ? "Generating..." : "Generate";
+  let hint = "";
+  if (!apiReady) hint = "Waiting for the API to start...";
+  else if (generating) hint = "";
+  else if (!modelLoaded) hint = "The model loads on the first run, so it will take a few minutes.";
+  $("go-hint").textContent = hint;
+}
+
+// ---- meters ----
+function setMeter(prefix, s) {
+  const text = $(prefix + "-text"), bar = $(prefix + "-bar");
+  if (!s || s.error) { text.textContent = "n/a"; bar.style.width = "0%"; return; }
+  const pct = s.used_gb / s.total_gb * 100;
+  text.textContent = `${s.used_gb} / ${s.total_gb} GB`;
+  bar.style.width = pct + "%";
+  bar.className = "fill" + (pct >= 90 ? " err" : pct >= 75 ? " warn" : "");
+}
+
+// ---- alerts ----
+function renderAlerts(list) {
+  const box = $("alerts");
+  box.replaceChildren(...(list || []).map(msg => {
+    const d = document.createElement("div");
+    d.className = "alert";
+    d.textContent = msg;
+    return d;
+  }));
+}
+
+// ---- logs ----
+function renderLogs(lines) {
+  const el = $("logs");
+  const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 24;
+  el.replaceChildren(...(lines || []).map(line => {
+    const d = document.createElement("div");
+    d.textContent = line;
+    if (/ ERROR /.test(line)) d.className = "log-err";
+    else if (/ WARNING /.test(line)) d.className = "log-warn";
+    return d;
+  }));
+  if (atBottom) el.scrollTop = el.scrollHeight;
+}
+
+// ---- polling ----
 async function pollStatus() {
   try {
     const res = await fetch(API_BASE + "/status");
     if (!res.ok) throw new Error("not ok");
-    const data = await res.json();
-
-    if (apiReady && !data.model_loaded && !generating) {
-      statusEl.classList.add("warn");
-      statusEl.textContent = "Model not loaded — first Generate click will take a few minutes.";
-    } else if (!generating) {
-      statusEl.classList.remove("warn");
-      statusEl.textContent = "";
-    }
-
-    if (!apiReady) {
-      apiReady = true;
-      statusEl.classList.remove("warn");
-      statusEl.textContent = "";
-    }
-    goBtn.disabled = generating; // only generating (not readiness) controls this now
-
-    alertsEl.innerHTML = "";
-    (data.warnings || []).forEach(msg => {
-      const div = document.createElement("div");
-      div.className = "alert";
-      div.textContent = "⚠ " + msg;
-      alertsEl.appendChild(div);
-    });
-
-    if (!data.gpu.error) {
-      const pct = (data.gpu.used_gb / data.gpu.total_gb) * 100;
-      document.getElementById("vram-text").textContent = `${data.gpu.used_gb} / ${data.gpu.total_gb} GB`;
-      document.getElementById("vram-bar").style.width = pct + "%";
-    }
-    if (!data.ram.error) {
-      const pct = (data.ram.used_gb / data.ram.total_gb) * 100;
-      document.getElementById("ram-text").textContent = `${data.ram.used_gb} / ${data.ram.total_gb} GB`;
-      document.getElementById("ram-bar").style.width = pct + "%";
-    }
-
-    if (data.generating) {
-      document.getElementById("step-text").textContent = `${data.step} / ${data.total_steps}`;
-      document.getElementById("step-bar").style.width = (data.step / data.total_steps * 100) + "%";
-    } else {
-      document.getElementById("step-text").textContent = "idle";
-      document.getElementById("step-bar").style.width = "0%";
-    }
-
-    logsEl.textContent = data.logs.join("\n");
-    logsEl.scrollTop = logsEl.scrollHeight;
+    const d = await res.json();
+    apiReady = true;
+    modelLoaded = d.model_loaded;
+    runOnRam = !!d.run_on_ram;
+    totalSteps = d.total_steps || totalSteps;
+    // the server keeps the last run's final step after it finishes; only trust it while active
+    step = d.generating ? d.step : 0;
+    if (generating && step > 0 && firstStepTs === null) { firstStepTs = Date.now(); firstStepNo = step; }
+    setMeter("vram", d.gpu);
+    setMeter("ram", d.ram);
+    renderAlerts(d.warnings);
+    renderLogs(d.logs);
   } catch (err) {
-    // Couldn't reach the API — either still starting up, or it just restarted.
     apiReady = false;
-    goBtn.disabled = true;
-    statusEl.classList.add("warn");
-    statusEl.textContent = "Waiting for the API to start (loading model)...";
   }
+  renderChips();
+  renderControls();
+  renderProgress();
 }
-setInterval(pollStatus, 1500);
+setInterval(pollStatus, 1000);
 pollStatus();
 
-async function loadSizes() {
+// ---- progress overlay ----
+function fmt(sec) {
+  sec = Math.max(0, Math.round(sec));
+  return sec >= 60 ? `${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, "0")}s` : `${sec}s`;
+}
+function renderProgress() {
+  $("overlay").hidden = !generating;
+  $("canvas").classList.toggle("busy", generating);
+  if (!generating) return;
+
+  const elapsed = (Date.now() - startTs) / 1000;
+  const bar = $("progress-bar");
+  let title;
+  if (step === 0) title = modelLoaded ? "Reading the prompt..." : "Loading the model...";
+  else title = "Generating image";
+  $("progress-title").textContent = title;
+
+  if (step > 0 && totalSteps) {
+    bar.classList.remove("indeterminate");
+    $("progress-fill").style.width = (step / totalSteps * 100) + "%";
+    $("progress-step").textContent = `Step ${step} of ${totalSteps}`;
+  } else {
+    bar.classList.add("indeterminate");
+    $("progress-fill").style.width = "";
+    $("progress-step").textContent = "";
+  }
+  $("progress-elapsed").textContent = `${fmt(elapsed)} elapsed`;
+
+  let eta = "";
+  if (firstStepTs !== null && step > firstStepNo) {
+    const perStep = (Date.now() - firstStepTs) / (step - firstStepNo);
+    eta = `about ${fmt((totalSteps - step) * perStep / 1000)} left`;
+  }
+  $("progress-eta").textContent = eta;
+}
+setInterval(renderProgress, 250);
+
+// ---- sizes ----
+function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+function renderSizes(data) {
+  const wrap = $("sizes");
+  wrap.replaceChildren();
+  const stored = store.get("qwen.size");
+  const sizes = data.available_sizes;
+  const usable = s => { const [w, h] = s.split("x").map(Number); return !data.max_pixels || w * h <= data.max_pixels; };
+  selectedSize = sizes.includes(stored) && usable(stored) ? stored : (sizes.find(usable) || sizes[0]);
+
+  sizes.forEach(size => {
+    const [w, h] = size.split("x").map(Number);
+    const g = gcd(w, h);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "size";
+    btn.dataset.size = size;
+    btn.disabled = !usable(size);
+    if (btn.disabled) btn.title = "Over max_pixels in config.yaml";
+    const k = 20 / Math.max(w, h);
+    btn.innerHTML = `<span class="box"><i style="width:${Math.round(w * k)}px;height:${Math.round(h * k)}px"></i></span>
+      <span><span class="dims">${w}×${h}</span><span class="ratio">${w / g}:${h / g}</span></span>`;
+    btn.addEventListener("click", () => selectSize(size));
+    wrap.appendChild(btn);
+  });
+  selectSize(selectedSize);
+}
+function selectSize(size) {
+  selectedSize = size;
+  store.set("qwen.size", size);
+  document.querySelectorAll(".size").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.size === size)));
+}
+
+async function loadConfig() {
   if (sizesLoaded) return;
   try {
     const res = await fetch(API_BASE + "/config");
     if (!res.ok) throw new Error("not ok");
     const data = await res.json();
-    const select = document.getElementById("size");
-    select.innerHTML = "";
-    data.available_sizes.forEach(size => {
-      const [w, h] = size.split("x").map(Number);
-      // if (w * h > data.max_pixels) return; // defensive, in case config drifts
-      const opt = document.createElement("option");
-      opt.value = size;
-      opt.textContent = size;
-      select.appendChild(opt);
-    });
-    select.disabled = false;
+    renderSizes(data);
+
+    defaultNeg = data.negative_prompt || "";
+    const storedNeg = store.get("qwen.neg");
+    negEl.value = storedNeg !== null ? storedNeg : defaultNeg;
+
+    const cfgOn = (data.true_cfg_scale || 1) > 1;
+    $("cfg-hint").textContent = cfgOn ? `Guidance ${data.true_cfg_scale}` : "Off (guidance is 1.0)";
+    $("neg-details").open = cfgOn;
     sizesLoaded = true;
-  } catch (err) {
-    // API not ready yet — keep retrying
-  }
+    renderControls();
+  } catch (err) { /* API not ready yet — retry */ }
 }
-setInterval(loadSizes, 3000);
-loadSizes();
+setInterval(loadConfig, 3000);
+loadConfig();
 
-goBtn.addEventListener("click", async () => {
-  const prompt = document.getElementById("prompt").value.trim();
-  if (!prompt) { timingEl.className = "err"; timingEl.textContent = "Enter a prompt first."; return; }
+// ---- result display / history ----
+function b64ToBlobUrl(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+}
 
-  const size = document.getElementById("size").value;
+function metaSpan(text, cls) {
+  const s = document.createElement("span");
+  if (cls) s.className = cls;
+  s.textContent = text;
+  return s;
+}
+function setMeta(parts) { $("meta").replaceChildren(...parts); }
+
+function showItem(item) {
+  $("result").src = item.url;
+  $("result").hidden = false;
+  $("empty").hidden = true;
+  $("open-full").href = item.url;
+  $("open-full").hidden = false;
+  $("download").href = item.url;
+  $("download").download = item.filename;
+  $("download").hidden = false;
+
+  const parts = [metaSpan(`${item.size.replace("x", "×")} px`),
+                 metaSpan(`${item.total}s total`, "ok")];
+  if (item.server != null) parts.push(metaSpan(`${item.server}s on the server`));
+  parts.push(metaSpan(item.time));
+  setMeta(parts);
+  document.querySelectorAll(".thumb").forEach(t => t.setAttribute("aria-current", String(t.dataset.id === item.id)));
+}
+
+function addHistory(item) {
+  history.unshift(item);
+  while (history.length > 12) URL.revokeObjectURL(history.pop().url);
+  const wrap = $("history");
+  wrap.replaceChildren(...history.map(h => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "thumb"; b.dataset.id = h.id;
+    b.title = `${h.size}, ${h.time}`;
+    const im = document.createElement("img");
+    im.src = h.url; im.alt = "";
+    b.appendChild(im);
+    b.addEventListener("click", () => showItem(h));
+    return b;
+  }));
+}
+
+// ---- generate ----
+async function generate() {
+  if ($("go").disabled) return;
+  const prompt = promptEl.value.trim();
+  if (!prompt) {
+    setMeta([metaSpan("Enter a prompt before generating.", "err")]);
+    promptEl.focus();
+    return;
+  }
+
   generating = true;
-  goBtn.disabled = true;
-  img.style.display = "none";
-  const start = Date.now();
-  timingEl.className = "";
-  const tick = () => { timingEl.textContent = `Generating... ${((Date.now() - start) / 1000).toFixed(0)}s elapsed`; };
-  tick();
-  const ticker = setInterval(tick, 1000);
+  startTs = Date.now();
+  firstStepTs = null; firstStepNo = 0; step = 0;
+  setMeta([]);
+  renderControls();
+  renderProgress();
 
+  const size = selectedSize;
   try {
     const res = await fetch(API_BASE + "/v1/images/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, size })
+      body: JSON.stringify({ prompt, size, negative_prompt: negEl.value }),
     });
     if (!res.ok) {
       const text = await res.text();
       let detail = text;
       try { detail = JSON.parse(text).detail || text; } catch (e) {}
-      throw new Error(`${res.status}: ${detail}`);
+      throw new Error(detail);
     }
     const data = await res.json();
-    img.src = "data:image/png;base64," + data.data[0].b64_json;
-    img.style.display = "block";
-    const secs = ((Date.now() - start) / 1000).toFixed(1);
-    const genSecs = data.generation_seconds != null ? ` (server: ${data.generation_seconds}s)` : "";
-    timingEl.className = "ok";
-    timingEl.textContent = `Done in ${secs}s total${genSecs}.`;
+    const now = new Date();
+    const item = {
+      id: String(now.getTime()),
+      url: b64ToBlobUrl(data.data[0].b64_json),
+      size,
+      total: ((Date.now() - startTs) / 1000).toFixed(1),
+      server: data.generation_seconds,
+      time: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      filename: `qwen_${size}_${now.getTime()}.png`,
+    };
+    addHistory(item);
+    showItem(item);
   } catch (err) {
-    const secs = ((Date.now() - start) / 1000).toFixed(1);
-    timingEl.className = "err";
-    timingEl.textContent = `Failed after ${secs}s — ${err.message}`;
+    const secs = ((Date.now() - startTs) / 1000).toFixed(1);
+    const msg = err instanceof TypeError
+      ? "Lost the connection to the API. It may have restarted or run out of memory. Check the server log."
+      : err.message;
+    setMeta([metaSpan(`Failed after ${secs}s`, "err"), metaSpan(msg, "err")]);
   } finally {
-    clearInterval(ticker);
     generating = false;
-    goBtn.disabled = !apiReady;
+    renderControls();
+    renderProgress();
   }
-});
+}
+$("go").addEventListener("click", generate);
 </script>
 </body>
 </html>
