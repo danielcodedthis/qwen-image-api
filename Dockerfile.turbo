@@ -1,0 +1,28 @@
+FROM rocm/pytorch:latest
+
+WORKDIR /app
+
+# Turbo ships its 8-step sampling schedule inside the checkpoint. Reading it needs
+# a recent diffusers (source build, newer than a tagged release) and
+# transformers >= 5.17. This image is built separately from the main one, so
+# updating it never touches the working qwen-image-api image.
+# Pin a commit with:  docker compose build --build-arg DIFFUSERS_REF=<sha> qwen-image-turbo-api
+ARG DIFFUSERS_REF=main
+
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicorn \
+    "git+https://github.com/huggingface/diffusers@${DIFFUSERS_REF}" \
+    "transformers>=5.17.0" \
+    accelerate \
+    pillow \
+    torchao \
+    pyyaml
+
+COPY server/ /app/
+
+RUN chmod -R a+rX /app
+
+EXPOSE 8000
+
+CMD ["python3", "main.py"]

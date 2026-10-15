@@ -6,6 +6,10 @@ scratch. Each entry: symptom → root cause → fix.
 
 ## Sequential CPU offload + tight system RAM = OOM (exit 137)
 
+*(Written when the machine had 32GB of RAM. It now has 96GB, so RAM is no
+longer the binding constraint, but this is still why sequential offload was
+dropped.)*
+
 **Symptom:** Container silently killed (`exit code 137`), no Python traceback,
 right after `Uvicorn running on...` or partway through generation.
 
@@ -93,7 +97,9 @@ quant_mapping = {
 
 Also note: `quant_type` must be an actual `AOBaseConfig` instance
 (`Int8WeightOnlyConfig()`), not the older string shorthand
-(`"int8_weight_only"`) — that string API was replaced.
+(`"int8_weight_only"`) — that string API was replaced. (Currently only the
+transformer is quantized; the `text_encoder` entry is commented out in
+`server/pipeline.py`.)
 
 ## VRAM OOM specifically during VAE decode, not during denoising
 
@@ -173,3 +179,137 @@ git config --global user.email "you@example.com"
 ```
 Use an email registered to your GitHub account (or its `noreply` alias from
 `github.com/settings/emails`) if you want commits attributed to your profile.
+
+---
+
+*Everything below was added after the RAM upgrade to 96GB, the web UI redesign
+and the introduction of Qwen-Image-2.1-Turbo.*
+
+## True CFG at 4.0 gave bad images on Qwen-Image-2.1
+
+**Symptom:** After adding `true_cfg_scale` and a negative prompt, images looked
+"really bad" compared to the earlier results.
+
+**Root cause:** The default of 4.0 was taken from the original Qwen-Image.
+Qwen-Image-2.1 is designed to be sampled without guidance (upstream default
+`true_cfg_scale` 1.0, recommended 40 steps). Strong guidance is off-distribution
+for it. Above 1.0 it also runs the transformer twice per step.
+
+**Fix:** Default is now `true_cfg_scale: 1.0` (off). The negative prompt is only
+used when guidance is above 1. If guidance is ever tried, start around 1.5–2.
+For hands and feet, more steps are a better lever than guidance.
+
+## Turbo quality degraded (mushy detail, "undead" faces) — fixed with a dedicated container
+
+**Symptom:** Turbo images were good at first (or only at 512×512) and then looked
+soft, over-processed, or lifeless at other sizes. The log showed
+`Generating [Qwen-Image-2.1 Turbo, 15 steps]`, and later 6 steps was tried.
+
+**Likely causes (not isolated, two things changed together):**
+1. Turbo is distilled for **8 steps**, and its sampling schedule is stored
+   inside the checkpoint. Other step counts are not what it was trained for.
+2. Using the saved schedule needs a recent `diffusers` (source build, newer than
+   the last tagged release at the time of the Turbo release notes) and
+   `transformers>=5.17`. The original image had an older diffusers cached in
+   its Docker layer, so the pipeline may have been using a generic schedule.
+
+**Fix:** Turbo moved to its own container (`qwen-image-turbo-api`, built from
+`Dockerfile.turbo`) with a fresh diffusers and 8 steps, bf16, no guidance.
+Verified versions: torch 2.13.0+rocm7.14.0, diffusers 0.41.0.dev0,
+transformers 5.20.0. After the move the log shows `Ran 8 denoising steps.` and
+results were good.
+
+**How to check in future:** the log prints a `Versions:` line at load and, after
+each generation, either `Ran N denoising steps.` or a warning that the number of
+steps run differs from the number requested.
+
+## The Docker pip layer pins whatever diffusers it first installed
+
+**Symptom:** A plain `docker compose build` reports `Using cache` for the
+`pip install` step, so `diffusers` installed from git main never updates, even
+if main has moved on.
+
+**Root cause:** Docker caches a layer as long as the `RUN` line text is
+unchanged; `git+https://github.com/huggingface/diffusers` is just text.
+
+**Fix:** `docker compose build --no-cache qwen-image-turbo-api` to refresh it
+(slow), or pin a commit with `--build-arg DIFFUSERS_REF=<sha>` (Turbo's
+Dockerfile exposes that argument) for repeatable builds.
+
+## UI: the "Done in Xs" message disappeared after a second
+
+**Symptom:** The total generation time never showed in the web UI.
+
+**Root cause:** The 1.5s status poll cleared the status line whenever nothing
+was generating, overwriting the result message. The message order wasn't the
+problem.
+
+**Fix:** The result/timing text has its own element that only the Generate
+handler writes. Polling no longer touches it.
+
+## UI: a stale "Model not loaded" warning stayed on screen
+
+**Symptom:** The status line said the model wasn't loaded while it was already
+generating.
+
+**Root cause:** The poll set the warning before generation began and then
+skipped clearing it while `generating` was true.
+
+**Fix:** The status line was replaced by header chips driven directly from
+`/status` (API / model / mode), so there is no text left to go stale. Also, the
+server keeps the last run's final step in `/status` after generation ends, so the
+UI only trusts `step` while `generating` is true.
+
+## `run_on_ram` is very slow, and the RAM bar looks nearly empty
+
+**Symptom:** With `memory.run_on_ram: true`, a 512×512 image took minutes per
+step, and the UI RAM bar showed only a few GB used while `free -h` showed ~68GB
+in `buff/cache`.
+
+**Root cause:** Running the whole transformer on the CPU is simply slow. The
+model weights are memory-mapped from the safetensors files, so Linux counts
+them as reclaimable page cache. The UI's "used" figure is `MemTotal -
+MemAvailable`, which leaves them out.
+
+**Fix / guidance:** Treat `run_on_ram` as a fallback, not a normal mode. Look at
+`buff/cache` in `free -h` for the real footprint. Plain bf16
+(`quantize_transformer: false`) was faster than int8 there.
+
+## `PermissionError` saving the PNG — `output-turbo/` owned by root
+
+**Symptom:** Generation completes (`Ran 8 denoising steps.`), then
+`PermissionError: [Errno 13] Permission denied: '/app/output/...png'`, and the
+request fails.
+
+**Root cause:** `./output-turbo` didn't exist, so Docker created it as root. The
+container runs as `UID:GID`, so it can't write there.
+
+**Fix:** `mkdir -p output-turbo` before first start, or
+`sudo chown -R "$USER":"$USER" output-turbo`. The server also no longer discards
+the image over this: a failed save is logged as a warning and the image is still
+returned to the browser.
+
+## nginx `403 Forbidden` on the UI
+
+**Symptom:** `http://localhost:3001/` returns 403. The nginx log says
+`open() "/usr/share/nginx/html/index.html" failed (13: Permission denied)`.
+
+**Root cause:** `web/index.html` had mode `-rw-------` (owner-only), and nginx in
+the container runs as a different user.
+
+**Fix:** `chmod 644 web/index.html`. No restart is needed, the folder is
+mounted live. (On an SELinux system, add `:z` to the volume line instead.)
+
+## `docker compose up --build` seems to hang after "Using cache"
+
+**Symptom:** All the expensive steps say `Using cache`, but the build sits on the
+last steps (`EXPOSE` / `CMD`) for a very long time.
+
+**Likely cause (not confirmed):** The output began with `buildx Docker CLI plugin
+not found: falling back to the classic builder`. The classic builder starts a
+container and commits a layer per changed step, which is slow on top of the
+huge `rocm/pytorch` image. Disk space and the storage driver are other
+suspects.
+
+**Fix:** Install the buildx plugin (Arch: `sudo pacman -S docker-buildx`), check
+`df -h / /var/lib/docker` and `docker system df`.

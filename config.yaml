@@ -10,7 +10,7 @@ memory:
 
   # Int8 weight-only quantization of the transformer. Saves memory, 
   # but it can be slower than plain bf16; 
-  quantize_transformer: true
+  quantize_transformer: false
 
   # VRAM budget for pipeline component placement (device_map="balanced"), set
   # at LOAD TIME. Components too large for this budget (the text encoder, in
@@ -43,7 +43,7 @@ generation:
   # steps cost half as much). Anything above 1.0 runs the transformer twice
   # per step, so generation takes roughly 2x as long. 4.0 is the Qwen-Image
   # reference value.
-  true_cfg_scale: 1.0
+  true_cfg_scale: 2.0
 
   # Default negative prompt, pre-filled in the web UI (the UI field can
   # override it per request). Only used when true_cfg_scale > 1.
@@ -86,3 +86,22 @@ monitoring:
   # these percentages. Warnings are logged once per crossing, not every step.
   vram_warn_percent: 92
   ram_warn_percent: 90
+
+# Models you can switch between in the web UI. Switching unloads the current
+# model and loads the other one (a few minutes). Per-model total_steps,
+# true_cfg_scale and negative_prompt override the "generation" section.
+#
+# Download Turbo into ./models (the folder must contain model_index.json):
+#   hf download Qwen/Qwen-Image-2.1-Turbo --local-dir ./models/Qwen-Image-2.1-Turbo
+# Note: the Qwen Research License allows non-commercial research use only.
+default_model: base
+models:
+  base:
+    label: "Qwen-Image-2.1"
+    path: /app/models/Qwen-Image-2.1
+  turbo:
+    enabled: false          # Turbo has its own container: qwen-image-turbo-api (config.turbo.yaml)
+    label: "Qwen-Image-2.1 Turbo"
+    path: /app/models/Qwen-Image-2.1-Turbo
+    total_steps: 8
+    true_cfg_scale: 1.0

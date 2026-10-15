@@ -24,6 +24,21 @@ DEFAULTS = {
     "startup": {
         "lazy_load": False,
     },
+    # Models selectable from the web UI. Per-model total_steps / true_cfg_scale /
+    # negative_prompt override the values in "generation".
+    "default_model": "base",
+    "models": {
+        "base": {
+            "label": "Qwen-Image-2.1",
+            "path": "/app/models/Qwen-Image-2.1",
+        },
+        "turbo": {
+            "label": "Qwen-Image-2.1 Turbo",
+            "path": "/app/models/Qwen-Image-2.1-Turbo",
+            "total_steps": 8,
+            "true_cfg_scale": 1.0,
+        },
+    },
     "monitoring": {
         # Log + show a warning in the UI when usage crosses these percentages.
         "vram_warn_percent": 92,
@@ -52,7 +67,29 @@ def load_config():
         # Fall back to defaults — lets the app run standalone (e.g. outside
         # docker compose, or if the config mount is ever omitted) without crashing.
         pass
+
+    # A model with `enabled: false` is dropped, so a container can serve just one.
+    enabled = {k: v for k, v in config["models"].items() if v.get("enabled", True)}
+    if not enabled:
+        raise ValueError("config.yaml: every model is disabled; enable at least one under 'models'.")
+    config = dict(config, models=enabled)
+    if config["default_model"] not in enabled:
+        config["default_model"] = next(iter(enabled))
     return config
 
 
 config = load_config()
+
+
+def get_model_settings(name):
+    """Resolved settings for one model: generation defaults + that model's overrides."""
+    gen = config["generation"]
+    m = config["models"][name]
+    return {
+        "id": name,
+        "label": m.get("label", name),
+        "path": m["path"],
+        "total_steps": int(m.get("total_steps", gen["total_steps"])),
+        "true_cfg_scale": float(m.get("true_cfg_scale", gen["true_cfg_scale"])),
+        "negative_prompt": m.get("negative_prompt", gen["negative_prompt"]) or "",
+    }

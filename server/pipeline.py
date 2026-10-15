@@ -1,3 +1,4 @@
+import gc
 import threading
 import torch
 from diffusers import QwenImage21Pipeline
@@ -7,18 +8,32 @@ from transformers import TorchAoConfig as TransformersTorchAoConfig
 from torchao.quantization import Int8WeightOnlyConfig
 
 from monitoring import logger, is_oom_error, report_oom
-from config import config
+from config import config, get_model_settings
 
 _pipe = None
+_loaded_name = None
 _load_lock = threading.Lock()
 
 
-def _build_pipe():
+def default_model():
+    return config["default_model"]
+
+
+def _build_pipe(name):
+    settings = get_model_settings(name)
     run_on_ram = config["memory"]["run_on_ram"]
     quantize = config["memory"]["quantize_transformer"]
 
+    import diffusers, transformers
+    logger.info(
+        f"Versions: torch {torch.__version__}, diffusers {diffusers.__version__}, "
+        f"transformers {transformers.__version__}"
+    )
     mode = "system RAM / CPU only" if run_on_ram else "GPU + CPU offload (balanced)"
-    logger.info(f"Loading local Qwen-Image-2.1 — mode: {mode}, quantized transformer: {quantize}")
+    logger.info(
+        f"Loading '{settings['label']}' from {settings['path']} — "
+        f"mode: {mode}, quantized transformer: {quantize}"
+    )
 
     kwargs = dict(dtype=torch.bfloat16, local_files_only=True)
 
@@ -38,7 +53,7 @@ def _build_pipe():
         }
     # else: no device_map -> everything loads on CPU and stays there.
 
-    pipe = QwenImage21Pipeline.from_pretrained("/app/models/Qwen-Image-2.1", **kwargs)
+    pipe = QwenImage21Pipeline.from_pretrained(settings["path"], **kwargs)
 
     pipe.vae.enable_slicing()
     # pipe.vae.enable_tiling() # Don't do it, reduces quality. Purple lines.
@@ -48,22 +63,43 @@ def _build_pipe():
     return pipe
 
 
-def get_pipe():
-    """Thread-safe lazy load — builds the pipeline on first call, reuses it after."""
-    global _pipe
+def _unload_locked():
+    """Drop the current pipeline and give its memory back. Caller must hold _load_lock."""
+    global _pipe, _loaded_name
     if _pipe is None:
-        with _load_lock:
-            if _pipe is None:  # re-check inside the lock, in case two requests raced here
-                try:
-                    _pipe = _build_pipe()
-                except Exception as e:
-                    if is_oom_error(e):
-                        report_oom(e, stage="model load")
-                    else:
-                        logger.exception("Model load failed")
-                    raise
+        return
+    logger.info(f"Unloading '{_loaded_name}' to free memory...")
+    _pipe = None
+    _loaded_name = None
+    gc.collect()
+    if not config["memory"]["run_on_ram"] and torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
+def get_pipe(name=None):
+    """Thread-safe lazy load. Reuses the loaded model, or swaps to `name` if it differs."""
+    global _pipe, _loaded_name
+    name = name or default_model()
+    if _pipe is not None and _loaded_name == name:
+        return _pipe
+    with _load_lock:
+        if _pipe is None or _loaded_name != name:  # re-check inside the lock
+            _unload_locked()
+            try:
+                _pipe = _build_pipe(name)
+                _loaded_name = name
+            except Exception as e:
+                if is_oom_error(e):
+                    report_oom(e, stage=f"model load ({name})")
+                else:
+                    logger.exception(f"Model load failed ({name})")
+                raise
     return _pipe
 
 
 def is_loaded():
     return _pipe is not None
+
+
+def loaded_model():
+    return _loaded_name

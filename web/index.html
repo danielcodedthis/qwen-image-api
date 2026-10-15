@@ -64,6 +64,7 @@
   .link-btn { background: none; border: 0; padding: 0; color: var(--accent); font-size: 12.5px; cursor: pointer; }
   .link-btn:hover { color: var(--accent-strong); text-decoration: underline; }
 
+  .models { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
   .sizes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
   .size {
     display: flex; align-items: center; gap: 10px; padding: 8px 10px; text-align: left;
@@ -172,6 +173,14 @@
     <div class="controls">
       <div class="section">
         <div class="label-row">
+          <span class="label">Model</span>
+          <span class="hint" id="model-hint"></span>
+        </div>
+        <div class="models" id="models"></div>
+      </div>
+
+      <div class="section">
+        <div class="label-row">
           <label class="label" for="prompt">Prompt</label>
           <span class="hint">Ctrl+Enter to generate</span>
         </div>
@@ -257,7 +266,9 @@
 </div>
 
 <script>
-const API_BASE = `http://${location.hostname || "localhost"}:8000`;
+// Turbo UI is served on :3001 and talks to the turbo API on :8001. Override with ?api=PORT.
+const API_PORT = new URLSearchParams(location.search).get("api") || (location.port === "3001" ? "8001" : "8000");
+const API_BASE = `http://${location.hostname || "localhost"}:${API_PORT}`;
 const $ = id => document.getElementById(id);
 
 // ---- tiny localStorage wrapper (a long JSON prompt survives a refresh) ----
@@ -271,6 +282,7 @@ let apiReady = false, modelLoaded = false, runOnRam = false;
 let generating = false, startTs = 0;
 let step = 0, totalSteps = 0, firstStepTs = null, firstStepNo = 0;
 let sizesLoaded = false, selectedSize = null, defaultNeg = "";
+let modelsInfo = [], selectedModel = null, loadedModel = null, requestedModel = null;
 const history = [];
 
 // ---- prompt fields ----
@@ -292,7 +304,7 @@ function setChip(id, state, text) {
 function renderChips() {
   setChip("chip-api", apiReady ? "ok" : "err", apiReady ? "API online" : "API offline");
   setChip("chip-model", !apiReady ? "" : modelLoaded ? "ok" : "warn",
-          !apiReady ? "Model unknown" : modelLoaded ? "Model loaded" : "Model not loaded");
+          !apiReady ? "Model unknown" : modelLoaded ? `Loaded: ${modelLabel(loadedModel)}` : "No model loaded");
   setChip("chip-mode", "", !apiReady ? "Mode unknown" : runOnRam ? "Running on RAM (CPU)" : "GPU with CPU offload");
 }
 function renderControls() {
@@ -302,6 +314,8 @@ function renderControls() {
   if (!apiReady) hint = "Waiting for the API to start...";
   else if (generating) hint = "";
   else if (!modelLoaded) hint = "The model loads on the first run, so it will take a few minutes.";
+  else if (selectedModel && loadedModel && selectedModel !== loadedModel)
+    hint = `${modelLabel(selectedModel)} will replace ${modelLabel(loadedModel)} in memory, which takes a few minutes.`;
   $("go-hint").textContent = hint;
 }
 
@@ -348,6 +362,7 @@ async function pollStatus() {
     const d = await res.json();
     apiReady = true;
     modelLoaded = d.model_loaded;
+    loadedModel = d.loaded_model || null;
     runOnRam = !!d.run_on_ram;
     totalSteps = d.total_steps || totalSteps;
     // the server keeps the last run's final step after it finishes; only trust it while active
@@ -380,7 +395,8 @@ function renderProgress() {
   const elapsed = (Date.now() - startTs) / 1000;
   const bar = $("progress-bar");
   let title;
-  if (step === 0) title = modelLoaded ? "Reading the prompt..." : "Loading the model...";
+  const needsLoad = !modelLoaded || (requestedModel && loadedModel !== requestedModel);
+  if (step === 0) title = needsLoad ? "Loading the model..." : "Reading the prompt...";
   else title = "Generating image";
   $("progress-title").textContent = title;
 
@@ -434,7 +450,53 @@ function renderSizes(data) {
 function selectSize(size) {
   selectedSize = size;
   store.set("qwen.size", size);
-  document.querySelectorAll(".size").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.size === size)));
+  document.querySelectorAll("#sizes .size").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.size === size)));
+}
+
+// ---- models ----
+function modelLabel(id) {
+  const m = modelsInfo.find(x => x.id === id);
+  return m ? m.label : (id || "none");
+}
+function currentModel() {
+  return modelsInfo.find(m => m.id === selectedModel) || modelsInfo[0];
+}
+function renderModels(data) {
+  modelsInfo = data.models;
+  const stored = store.get("qwen.model");
+  const ok = id => modelsInfo.some(m => m.id === id && m.available);
+  const firstOk = (modelsInfo.find(m => m.available) || modelsInfo[0]).id;
+  const pick = ok(stored) ? stored : ok(data.default_model) ? data.default_model : firstOk;
+
+  const wrap = $("models");
+  wrap.replaceChildren();
+  modelsInfo.forEach(m => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "size";
+    btn.dataset.model = m.id;
+    btn.disabled = !m.available;
+    if (!m.available) btn.title = `Not downloaded yet: ${m.path}`;
+    const steps = m.true_cfg_scale > 1 ? `${m.total_steps} steps, guided` : `${m.total_steps} steps`;
+    btn.innerHTML = `<span><span class="dims"></span><span class="ratio"></span></span>`;
+    btn.querySelector(".dims").textContent = m.label;
+    btn.querySelector(".ratio").textContent = m.available ? steps : "Not downloaded";
+    btn.addEventListener("click", () => selectModel(m.id));
+    wrap.appendChild(btn);
+  });
+  selectModel(pick);
+}
+function selectModel(id) {
+  selectedModel = id;
+  store.set("qwen.model", id);
+  document.querySelectorAll("#models .size").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.model === id)));
+  const m = currentModel();
+  defaultNeg = m.negative_prompt || "";
+  const cfgOn = (m.true_cfg_scale || 1) > 1;
+  $("cfg-hint").textContent = cfgOn ? `Guidance ${m.true_cfg_scale}` : "Off (guidance is 1.0)";
+  $("neg-details").open = cfgOn;
+  $("model-hint").textContent = `${m.total_steps} steps`;
+  renderControls();
 }
 
 async function loadConfig() {
@@ -445,13 +507,10 @@ async function loadConfig() {
     const data = await res.json();
     renderSizes(data);
 
-    defaultNeg = data.negative_prompt || "";
+    renderModels(data);
     const storedNeg = store.get("qwen.neg");
     negEl.value = storedNeg !== null ? storedNeg : defaultNeg;
 
-    const cfgOn = (data.true_cfg_scale || 1) > 1;
-    $("cfg-hint").textContent = cfgOn ? `Guidance ${data.true_cfg_scale}` : "Off (guidance is 1.0)";
-    $("neg-details").open = cfgOn;
     sizesLoaded = true;
     renderControls();
   } catch (err) { /* API not ready yet — retry */ }
@@ -485,7 +544,8 @@ function showItem(item) {
   $("download").download = item.filename;
   $("download").hidden = false;
 
-  const parts = [metaSpan(`${item.size.replace("x", "×")} px`),
+  const parts = [metaSpan(item.model || ""),
+                 metaSpan(`${item.size.replace("x", "×")} px`),
                  metaSpan(`${item.total}s total`, "ok")];
   if (item.server != null) parts.push(metaSpan(`${item.server}s on the server`));
   parts.push(metaSpan(item.time));
@@ -527,11 +587,12 @@ async function generate() {
   renderProgress();
 
   const size = selectedSize;
+  requestedModel = selectedModel;
   try {
     const res = await fetch(API_BASE + "/v1/images/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, size, negative_prompt: negEl.value }),
+      body: JSON.stringify({ prompt, size, model: selectedModel, negative_prompt: negEl.value }),
     });
     if (!res.ok) {
       const text = await res.text();
@@ -549,6 +610,7 @@ async function generate() {
       server: data.generation_seconds,
       time: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       filename: `qwen_${size}_${now.getTime()}.png`,
+      model: modelLabel(requestedModel),
     };
     addHistory(item);
     showItem(item);
