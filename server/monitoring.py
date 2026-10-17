@@ -222,8 +222,9 @@ def report_oom(exc, stage="generation"):
         logger.error("  Hint: lower the resolution, or set memory.quantize_transformer: true.")
     else:
         logger.error(
-            "  Hint: lower the resolution, lower memory.gpu_max_memory, "
-            "or set memory.run_on_ram: true in config.yaml."
+            "  Hint: lower the resolution. If memory.vae_fp32 is on, turn it off. "
+            "Or set memory.vae_on_cpu: true to decode the image in system RAM, "
+            "lower memory.gpu_max_memory, or set memory.run_on_ram: true (slow)."
         )
 
 

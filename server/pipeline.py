@@ -56,11 +56,46 @@ def _build_pipe(name):
     pipe = QwenImage21Pipeline.from_pretrained(settings["path"], **kwargs)
 
     pipe.vae.enable_slicing()
+    if config["memory"].get("vae_on_cpu"):
+        _use_cpu_vae(pipe)
+    elif config["memory"].get("vae_fp32"):
+        _use_fp32_vae(pipe)
     # pipe.vae.enable_tiling() # Don't do it, reduces quality. Purple lines.
     logger.info("Pipeline loaded and ready.")
     device_map = getattr(pipe, "hf_device_map", None)
     logger.info(f"Device map: {device_map if device_map else 'all on CPU (RAM)'}")
     return pipe
+
+
+def _use_fp32_vae(pipe):
+    """Run the VAE in float32 so decoding avoids low-precision banding artifacts."""
+    pipe.vae.to(torch.float32)
+    original_decode = pipe.vae.decode
+
+    def decode_fp32(latents, *args, **kwargs):
+        # Cast here too, so it works whatever dtype the pipeline hands over.
+        return original_decode(latents.to(torch.float32), *args, **kwargs)
+
+    pipe.vae.decode = decode_fp32
+    logger.info("VAE decode runs in float32 (memory.vae_fp32: true).")
+
+
+def _use_cpu_vae(pipe):
+    """Keep the VAE in system RAM and decode on the CPU, so the final decode needs no VRAM."""
+    # device_map loading attaches accelerate hooks that move every input back to the GPU.
+    # Remove them first, otherwise the CPU weights would receive CUDA tensors.
+    from accelerate.hooks import remove_hook_from_module
+
+    remove_hook_from_module(pipe.vae, recurse=True)
+    pipe.vae.to(device="cpu", dtype=torch.float32)
+    original_decode = pipe.vae.decode
+
+    def decode_cpu(latents, *args, **kwargs):
+        # The latents come from the GPU; bring them over, decode, and return a CPU tensor.
+        return original_decode(latents.to(device="cpu", dtype=torch.float32), *args, **kwargs)
+
+    pipe.vae.decode = decode_cpu
+    logger.info("VAE decode runs on the CPU in float32 (memory.vae_on_cpu: true).")
 
 
 def _unload_locked():

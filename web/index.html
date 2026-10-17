@@ -281,6 +281,7 @@ const store = {
 let apiReady = false, modelLoaded = false, runOnRam = false;
 let generating = false, startTs = 0;
 let step = 0, totalSteps = 0, firstStepTs = null, firstStepNo = 0;
+let etaDeadline = null, lastStepSeen = 0;
 let sizesLoaded = false, selectedSize = null, defaultNeg = "";
 let modelsInfo = [], selectedModel = null, loadedModel = null, requestedModel = null;
 const history = [];
@@ -367,7 +368,19 @@ async function pollStatus() {
     totalSteps = d.total_steps || totalSteps;
     // the server keeps the last run's final step after it finishes; only trust it while active
     step = d.generating ? d.step : 0;
-    if (generating && step > 0 && firstStepTs === null) { firstStepTs = Date.now(); firstStepNo = step; }
+    if (generating && step > 0) {
+      if (firstStepTs === null) {
+        firstStepTs = Date.now(); firstStepNo = step; lastStepSeen = step;
+      } else if (step !== lastStepSeen) {
+        lastStepSeen = step;
+        // Re-estimate only when a new step lands, and keep it as a fixed finish time
+        // that counts down smoothly in between.
+        if (step - firstStepNo >= 2 && totalSteps) {
+          const perStep = (Date.now() - firstStepTs) / (step - firstStepNo);
+          etaDeadline = Date.now() + (totalSteps - step) * perStep;
+        }
+      }
+    }
     setMeter("vram", d.gpu);
     setMeter("ram", d.ram);
     renderAlerts(d.warnings);
@@ -387,38 +400,46 @@ function fmt(sec) {
   sec = Math.max(0, Math.round(sec));
   return sec >= 60 ? `${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, "0")}s` : `${sec}s`;
 }
+function setText(id, text) {
+  const el = $(id);
+  if (el.textContent !== text) el.textContent = text;   // only touch the DOM when the text changes
+}
 function renderProgress() {
   $("overlay").hidden = !generating;
   $("canvas").classList.toggle("busy", generating);
+  // Hide the "No image yet" text while the first image is being made.
+  if ($("result").hidden) $("empty").hidden = generating;
   if (!generating) return;
 
   const elapsed = (Date.now() - startTs) / 1000;
   const bar = $("progress-bar");
-  let title;
   const needsLoad = !modelLoaded || (requestedModel && loadedModel !== requestedModel);
+  let title;
   if (step === 0) title = needsLoad ? "Loading the model..." : "Reading the prompt...";
+  else if (totalSteps && step >= totalSteps) title = "Finishing up...";
   else title = "Generating image";
-  $("progress-title").textContent = title;
+  setText("progress-title", title);
 
   if (step > 0 && totalSteps) {
     bar.classList.remove("indeterminate");
     $("progress-fill").style.width = (step / totalSteps * 100) + "%";
-    $("progress-step").textContent = `Step ${step} of ${totalSteps}`;
+    setText("progress-step", `Step ${step} of ${totalSteps}`);
   } else {
     bar.classList.add("indeterminate");
     $("progress-fill").style.width = "";
-    $("progress-step").textContent = "";
+    setText("progress-step", "");
   }
-  $("progress-elapsed").textContent = `${fmt(elapsed)} elapsed`;
+  setText("progress-elapsed", `${fmt(elapsed)} elapsed`);
 
   let eta = "";
-  if (firstStepTs !== null && step > firstStepNo) {
-    const perStep = (Date.now() - firstStepTs) / (step - firstStepNo);
-    eta = `about ${fmt((totalSteps - step) * perStep / 1000)} left`;
+  if (etaDeadline !== null && !(totalSteps && step >= totalSteps)) {
+    let left = Math.max(0, Math.round((etaDeadline - Date.now()) / 1000));
+    if (left >= 60) left = Math.round(left / 5) * 5;   // coarser when far away, so it doesn't fidget
+    eta = left === 0 ? "almost done" : `about ${fmt(left)} left`;
   }
-  $("progress-eta").textContent = eta;
+  setText("progress-eta", eta);
 }
-setInterval(renderProgress, 250);
+setInterval(renderProgress, 500);
 
 // ---- sizes ----
 function gcd(a, b) { return b ? gcd(b, a % b) : a; }
@@ -581,7 +602,7 @@ async function generate() {
 
   generating = true;
   startTs = Date.now();
-  firstStepTs = null; firstStepNo = 0; step = 0;
+  firstStepTs = null; firstStepNo = 0; step = 0; etaDeadline = null; lastStepSeen = 0;
   setMeta([]);
   renderControls();
   renderProgress();

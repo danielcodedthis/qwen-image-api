@@ -9,6 +9,13 @@ DEFAULTS = {
         "run_on_ram": False,
         # Int8 weight-only quantization of the transformer.
         "quantize_transformer": True,
+        # Decode images through the VAE in float32 instead of bf16. Can remove fine
+        # banding/stripes; costs extra VRAM during the final decode step.
+        "vae_fp32": False,
+        # Keep the VAE in system RAM and decode the final image on the CPU (float32).
+        # Slower for the last step only, but uses almost no VRAM for it. Use this when
+        # the decode runs out of GPU memory at large sizes.
+        "vae_on_cpu": False,
         "gpu_max_memory": "22GiB",
         "cpu_max_memory": "80GiB",
     },

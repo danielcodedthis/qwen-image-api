@@ -95,6 +95,8 @@ in the project root, and apply on container restart — no rebuild needed:
 memory:
   run_on_ram: false          # true = run everything on the CPU (works, but very slow)
   quantize_transformer: true # int8 weights to save VRAM; false = plain bf16
+  vae_fp32: false            # decode the image in float32 (try it if you see fine lines)
+  vae_on_cpu: false          # decode the image on the CPU, from system RAM (for big sizes)
   gpu_max_memory: "16GiB"    # VRAM budget for pipeline component placement
   cpu_max_memory: "40GiB"    # RAM budget for whatever doesn't fit on GPU
 
@@ -125,6 +127,13 @@ monitoring:
   the GPU, instead of risking an uncontrolled VRAM spike.
 - **`run_on_ram`** is a fallback for when something won't fit on the GPU.
   Expect many minutes per image.
+- **`vae_fp32`** makes the VAE decode in float32 instead of bf16. It can remove
+  fine banding or line artifacts, at the cost of extra VRAM during the last step.
+- **`vae_on_cpu`** keeps the VAE in system RAM and decodes the final image on the
+  CPU. Use it if a large size runs out of VRAM during the last step. Only the decode
+  gets slower, the denoising still runs on the GPU. Don't combine it with `vae_fp32`
+  on the GPU: float32 doubles the decode memory and can cause that out-of-memory
+  error in the first place.
 - **Models:** each config has a `models:` section with a `path`, a `label` and
   optional per-model `total_steps` / `true_cfg_scale`. Setting `enabled: false` on
   a model removes it from that container. By default each container serves one model.

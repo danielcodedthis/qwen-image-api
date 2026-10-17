@@ -17,7 +17,7 @@ models:
     # Turbo is distilled for 8 steps, and its sampling schedule is saved inside
     # the checkpoint (it only takes effect with a recent diffusers build). Keep
     # this at 8: other values are not what the model was trained for.
-    total_steps: 8
+    total_steps: 6
     true_cfg_scale: 1.0     # no guidance; Turbo is meant to run at CFG 1
 
 memory:
@@ -25,13 +25,20 @@ memory:
   run_on_ram: false
   # Plain bf16 gave you better results than int8 and fits (7B = ~14 GB).
   quantize_transformer: false
+  # Decode the final image in float32 instead of bf16. Try this if you see fine
+  # lines/banding in Turbo images; it needs extra VRAM during the last decode step.
+  vae_fp32: true
+  # Decode the final image on the CPU from system RAM instead of the GPU. Use it
+  # if a large size runs out of VRAM in the last step. Only the decode gets slower.
+  # Takes priority over vae_fp32.
+  vae_on_cpu: true
   # VRAM budget for placement at load time; the 8B text encoder goes to RAM.
-  gpu_max_memory: "16GiB"
+  gpu_max_memory: "14GiB"
   cpu_max_memory: "80GiB"
 
 generation:
   # Fallbacks only; the Turbo model entry above overrides steps and guidance.
-  total_steps: 8
+  total_steps: 6
   true_cfg_scale: 1.0
   negative_prompt: ""
   # 1638400 = 1280x1280. Turbo's native class is ~2K (2048x2048 = 4194304), but
@@ -40,6 +47,7 @@ generation:
 
 ui:
   available_sizes:
+    - "256x256"
     - "512x512"
     - "768x768"
     - "1024x1024"

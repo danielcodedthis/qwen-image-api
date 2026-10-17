@@ -313,3 +313,33 @@ suspects.
 
 **Fix:** Install the buildx plugin (Arch: `sudo pacman -S docker-buildx`), check
 `df -h / /var/lib/docker` and `docker system df`.
+
+## `vae_fp32` makes the final decode run out of VRAM at 1024x1024
+
+**Symptom:** `CUDA out of memory. Tried to allocate 10.12 GiB` at 1024x1024 with about
+8.8 GiB free, right after the denoising steps. The same size had worked before
+(peak about 22 GB).
+
+**Likely root cause:** `memory.vae_fp32: true` decodes the image in float32, which
+doubles the decode activations compared with bf16. A single decode allocation of
+that size no longer fits next to the transformer. (Inferred from the size and
+timing of the allocation, not from a trace of the decode call.)
+
+**Fix:** Set `vae_fp32: false` again, or set `memory.vae_on_cpu: true` to decode
+the image on the CPU from system RAM. That only slows the last step, and uses almost
+no VRAM for it. `run_on_ram: true` also avoids the problem, but makes the whole run
+very slow.
+
+## `vae_on_cpu`: "Input type (torch.cuda.FloatTensor) and weight type (torch.FloatTensor)"
+
+**Symptom:** With `memory.vae_on_cpu: true`, denoising finishes and then the request
+fails inside `vae.decode` with `RuntimeError: Input type (torch.cuda.FloatTensor) and
+weight type (torch.FloatTensor) should be the same`. The traceback passes through
+`accelerate/hooks.py`.
+
+**Root cause:** Loading with `device_map` attaches accelerate hooks to each component.
+The VAE's hook moves every input to the GPU before the forward pass. Moving only the VAE
+weights to the CPU leaves the hook in place, so CPU weights receive CUDA inputs.
+
+**Fix:** Remove the hooks (`accelerate.hooks.remove_hook_from_module(pipe.vae,
+recurse=True)`) before `pipe.vae.to("cpu")`.

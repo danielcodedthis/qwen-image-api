@@ -12,6 +12,15 @@ memory:
   # but it can be slower than plain bf16; 
   quantize_transformer: false
 
+  # Decode the final image through the VAE in float32 instead of bf16. Try this
+  # if you see fine lines or banding. It needs extra VRAM during the last decode
+  # step, so at your largest resolutions test it before relying on it.
+  vae_fp32: false
+  # Decode the final image on the CPU from system RAM instead of the GPU. Use it
+  # if a large size runs out of VRAM in the last step. Only the decode gets slower.
+  # Takes priority over vae_fp32.
+  vae_on_cpu: false
+
   # VRAM budget for pipeline component placement (device_map="balanced"), set
   # at LOAD TIME. Components too large for this budget (the text encoder, in
   # our setup) get placed on CPU RAM permanently instead of GPU.
@@ -60,6 +69,7 @@ generation:
 ui:
   available_sizes:
     - "1024x1024"
+    - "256x256"
     - "512x512"
     - "512x768"
     - "512x1024"
