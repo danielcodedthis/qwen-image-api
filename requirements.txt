@@ -1,0 +1,9 @@
+# API server dependencies. torch comes from the rocm/pytorch base image; diffusers,
+# transformers, accelerate and torchao are installed in the Dockerfiles.
+fastapi>=0.115
+uvicorn>=0.30
+python-multipart>=0.0.9
+pydantic>=2.7
+pyyaml>=6
+Pillow>=10
+mcp>=2.3,<3

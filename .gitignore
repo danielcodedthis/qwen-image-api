@@ -13,6 +13,7 @@ __pycache__/
 *.png
 response.json
 output/
+output-turbo/
 
 # Editor/OS cruft
 .vscode/
@@ -21,3 +22,6 @@ output/
 
 # Environment variables
 .env
+# ...but the synthetic test images are part of the repo
+!tests/fixtures/*.png
+!tests/fixtures/*.jpg

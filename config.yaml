@@ -82,6 +82,20 @@ ui:
     # 2359296
     - "1536x1536"
 
+edit:
+  # Image editing (Edit tab, POST /v1/images/edits, MCP edit_image). Qwen-Image-2.1 is a
+  # unified generation + editing model: the prompt is an instruction ("Change the
+  # background to a sunset beach") and the reference images are kept, not re-imagined.
+  # Most reference images per edit. The model supports 10; every image adds tokens to
+  # the sequence (VRAM and time), so raise this gradually and watch peak VRAM in the log.
+  max_images: 4
+  # References are resized to about resolution x resolution pixels (aspect kept), and an
+  # edit without a size comes out at about that area, shaped like the last reference.
+  # 1024 is the pipeline default.
+  resolution: 1024
+  # Uploads larger than this are rejected before they are decoded.
+  max_upload_mb: 25
+
 startup:
   # false: model loads immediately on container start — slower
   # startup, but every request is equally fast.
@@ -96,6 +110,19 @@ monitoring:
   # these percentages. Warnings are logged once per crossing, not every step.
   vram_warn_percent: 92
   ram_warn_percent: 90
+
+server:
+  # Image links in API/MCP responses (response_format: url, MCP tools) point here.
+  public_url: http://localhost:8000
+
+mcp:
+  # Embedded MCP server at http://localhost:8000/mcp (see docs/MCP.md).
+  enabled: true
+  name: qwen-image
+  # The endpoint only accepts requests addressed to localhost / 127.0.0.1 (protection
+  # against DNS rebinding). To use it from another machine or container, add the host
+  # it connects to, e.g. "192.168.1.20:*" or "host.docker.internal:*".
+  allowed_hosts: []
 
 # Models you can switch between in the web UI. Switching unloads the current
 # model and loads the other one (a few minutes). Per-model total_steps,

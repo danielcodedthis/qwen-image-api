@@ -1,0 +1,7 @@
+{
+  "plain": "a red fox sitting in a snowy forest",
+  "edit": "the same scene as a watercolor painting, soft paper texture",
+  "unicode": "一只坐在雪地森林里的红狐狸, café sign reading 'OUVERT' ✨",
+  "layout": "{\n  \"summary\": {\n    \"meta\": [\"poster\"],\n    \"canvas\": \"single\",\n    \"caption\": \"A warm cafe poster with the title FRESH COFFEE at the top.\"\n  },\n  \"items\": [\n    {\"label\": \"text\", \"caption\": \"Large title.\", \"text\": \"FRESH COFFEE\", \"bbox\": [-416, -384, -288, 384]},\n    {\"label\": \"object\", \"caption\": \"A coffee cup.\", \"bbox\": [-192, -256, 384, 256]}\n  ],\n  \"bbox_coord_space\": \"abs_centralized\",\n  \"bbox_format\": \"yxyx\"\n}",
+  "multiline": "line one of the prompt\n\nline three after a blank line\n\nnegative_prompt:\nthis only looks like a log marker\n\nserver logs during this generation:\nso does this"
+}

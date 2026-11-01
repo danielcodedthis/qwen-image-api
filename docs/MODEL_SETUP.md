@@ -70,7 +70,7 @@ The paths the containers look for are set in the config files
 We tried this (`Rin247/Qwen-Image-2.1-INT8`) and it silently loaded
 incorrectly — see `docs/PITFALLS.md` for why. Quantization in this project
 happens on-the-fly at load time instead, via `torchao`, against the base
-model above — no separate download needed for that. See `server/pipeline.py`.
+model above — no separate download needed for that. See `server/engine/qwen.py`.
 (Turbo runs in plain bf16 by default.)
 
 ## MIOpen kernel cache (not a model download, but also populated locally)

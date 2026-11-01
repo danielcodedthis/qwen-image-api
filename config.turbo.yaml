@@ -14,10 +14,10 @@ models:
   turbo:
     label: "Qwen-Image-2.1 Turbo"
     path: /app/models/Qwen-Image-2.1-Turbo
-    # Turbo is distilled for 8 steps, and its sampling schedule is saved inside
-    # the checkpoint (it only takes effect with a recent diffusers build). Keep
-    # this at 8: other values are not what the model was trained for.
-    total_steps: 6
+    # Turbo is distilled for 8 steps, and its sampling schedule is saved inside the
+    # checkpoint (model_index.json: sample_sigmas). The pipeline always runs that
+    # schedule, so this value has no effect on Turbo; the API reports the real 8 steps.
+    total_steps: 8
     true_cfg_scale: 1.0     # no guidance; Turbo is meant to run at CFG 1
 
 memory:
@@ -38,7 +38,7 @@ memory:
 
 generation:
   # Fallbacks only; the Turbo model entry above overrides steps and guidance.
-  total_steps: 6
+  total_steps: 8
   true_cfg_scale: 1.0
   negative_prompt: ""
   # 1638400 = 1280x1280. Turbo's native class is ~2K (2048x2048 = 4194304), but
@@ -64,3 +64,24 @@ startup:
 monitoring:
   vram_warn_percent: 92
   ram_warn_percent: 90
+
+edit:
+  # Image editing (Edit tab, POST /v1/images/edits, MCP edit_image). Qwen-Image-2.1 is a
+  # unified generation + editing model; Turbo edits in its 8 steps too.
+  # Most reference images per edit (the model supports 10; each one costs VRAM and time).
+  max_images: 4
+  # References are resized to about resolution x resolution pixels (aspect kept), and an
+  # edit without a size comes out at about that area, shaped like the last reference.
+  resolution: 1024
+  max_upload_mb: 25
+
+server:
+  # Image links in API/MCP responses point here (this container is published on :8001).
+  public_url: http://localhost:8001
+
+mcp:
+  # MCP endpoint: http://localhost:8001/mcp (see docs/MCP.md).
+  enabled: true
+  name: qwen-image-turbo
+  # Extra Host headers allowed besides localhost, e.g. "192.168.1.20:*".
+  allowed_hosts: []

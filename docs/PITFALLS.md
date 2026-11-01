@@ -98,8 +98,8 @@ quant_mapping = {
 Also note: `quant_type` must be an actual `AOBaseConfig` instance
 (`Int8WeightOnlyConfig()`), not the older string shorthand
 (`"int8_weight_only"`) — that string API was replaced. (Currently only the
-transformer is quantized; the `text_encoder` entry is commented out in
-`server/pipeline.py`.)
+transformer is quantized; the quantization mapping lives in
+`server/engine/qwen.py`.)
 
 ## VRAM OOM specifically during VAE decode, not during denoising
 
@@ -291,14 +291,16 @@ returned to the browser.
 
 ## nginx `403 Forbidden` on the UI
 
-**Symptom:** `http://localhost:3001/` returns 403. The nginx log says
-`open() "/usr/share/nginx/html/index.html" failed (13: Permission denied)`.
+**Symptom:** `http://localhost:3001/` returns 403, or the page loads unstyled/blank
+because `css/app.css` or a `js/*.js` file returns 403. The nginx log says
+`open() "/usr/share/nginx/html/..." failed (13: Permission denied)`.
 
-**Root cause:** `web/index.html` had mode `-rw-------` (owner-only), and nginx in
-the container runs as a different user.
+**Root cause:** A file or folder under `web/` had mode `-rw-------` (owner-only), and
+nginx in the container runs as a different user. Since the UI became several files
+(`index.html`, `css/`, `js/`), every one of them needs to be readable.
 
-**Fix:** `chmod 644 web/index.html`. No restart is needed, the folder is
-mounted live. (On an SELinux system, add `:z` to the volume line instead.)
+**Fix:** `chmod -R a+rX web`. No restart is needed, the folder is mounted live. (On an
+SELinux system, add `:z` to the volume line instead.)
 
 ## `docker compose up --build` seems to hang after "Using cache"
 
@@ -343,3 +345,66 @@ weights to the CPU leaves the hook in place, so CPU weights receive CUDA inputs.
 
 **Fix:** Remove the hooks (`accelerate.hooks.remove_hook_from_module(pipe.vae,
 recurse=True)`) before `pipe.vae.to("cpu")`.
+
+## Edits crash in the VAE with "Input type (BFloat16) and bias type (float)"
+
+*(Prevented before it happened; recorded so it isn't reintroduced.)*
+
+**Symptom:** Text-to-image works, but every edit fails right away with
+`RuntimeError: Input type (c10::BFloat16) and bias type (float) should be the same`
+(with `vae_fp32: true`), or `Input type (torch.cuda.FloatTensor) and weight type
+(torch.FloatTensor)` (with `vae_on_cpu: true`).
+
+**Root cause:** Editing encodes each reference image with the VAE
+(`_encode_vae_image`), and the pipeline hands the VAE a GPU bf16 tensor. The original
+`vae_fp32` / `vae_on_cpu` patches only converted the input of `vae.decode`. Encode also
+has to hand its result back on the GPU in bf16, because the pipeline concatenates it
+with the noise latents.
+
+**Fix:** `server/engine/qwen.py: place_vae` wraps both directions: encode and decode
+inputs go to the VAE's device/dtype, and encode's output goes back to the caller's.
+`tests/test_engine_wiring.py` runs this through the real pipeline code with a tiny VAE.
+
+## Turbo ignores `total_steps`
+
+**Symptom:** `config.turbo.yaml` had `total_steps: 6`, but Turbo still ran 8 steps, and
+the old server logged `Pipeline ran 8 denoising steps but 6 were requested` every time.
+
+**Root cause:** Turbo's checkpoint stores its 8-step schedule (`model_index.json` →
+`sample_sigmas`). `QwenImage21Pipeline` uses it instead of `num_inference_steps`.
+
+**Fix:** None needed; the server now reads the saved schedule at startup, reports 8
+steps everywhere, and answers 400 to a request for a different step count. To really
+try other schedules you would have to pass explicit `sigmas` (untested for Turbo).
+
+## A size that isn't a multiple of 32 silently changes
+
+**Symptom (old server):** asking for e.g. `1000x1000` returned a slightly smaller image.
+
+**Root cause:** The pipeline floors width and height to multiples of 32 (VAE factor 16
+times 2) without saying so.
+
+**Fix:** The API now rejects such sizes with a 400. All sizes in the configs are
+multiples of 32.
+
+## MCP client gets `421 Invalid Host header`
+
+**Symptom:** An MCP client (or the bridge pointed at a LAN address) gets HTTP 421 from
+`/mcp`; the API log shows `Invalid Host header: <name>:8000`.
+
+**Root cause:** The MCP endpoint has DNS-rebinding protection and only accepts
+`localhost`, `127.0.0.1` and `[::1]` as the Host by default.
+
+**Fix:** Add the host to that container's config, e.g.
+`mcp: {allowed_hosts: ["192.168.1.20:*"]}`, then restart it.
+
+## `No module named 'mcp.server.fastmcp'`
+
+**Symptom:** The API container fails at startup after the MCP code was "fixed" with an
+example from the web or from another local MCP project.
+
+**Root cause:** These containers use the MCP Python SDK 2.x (`requirements.txt`:
+`mcp>=2.3,<3`), where `FastMCP` was renamed `MCPServer`
+(`from mcp.server.mcpserver import MCPServer`). Other MCP tools on this machine pin `mcp<2`.
+
+**Fix:** Keep 2.x names in `server/mcp_server.py`. Don't pin `mcp<2` here.

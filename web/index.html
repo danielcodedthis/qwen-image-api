@@ -4,163 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Qwen Image</title>
-<!-- Source: svgrepo.com (License: CC0 (Creative Commons Zero), by SVG Repo) -->
 <link rel="icon" href="favicon.svg">
-<style>
-  :root {
-    color-scheme: dark;
-    --bg: #17181b;
-    --panel: #1e2024;
-    --field: #25272c;
-    --line: #2f3238;
-    --text: #e7e8ea;
-    --muted: #8d929b;
-    --accent: #4fb6a8;
-    --accent-strong: #6fcfc1;
-    --on-accent: #0f1f1d;
-    --ok: #5cc98f;
-    --warn: #e3a64a;
-    --err: #ee7b73;
-  }
-  * { box-sizing: border-box; }
-  [hidden] { display: none !important; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font: 14px/1.45 "Segoe UI Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
-  }
-  .app { max-width: 1760px; margin: 0 auto; padding: 18px 24px 28px; }
-
-  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
-  h1 { margin: 0; font-size: 19px; font-weight: 650; letter-spacing: -0.01em; }
-  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
-  .chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--muted); font-size: 12.5px; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
-  .chip.ok .dot { background: var(--ok); }
-  .chip.warn .dot { background: var(--warn); }
-  .chip.err .dot { background: var(--err); }
-
-  .layout { display: grid; grid-template-columns: 440px minmax(0, 1fr); gap: 20px; align-items: start; }
-
-  /* ---------- controls ---------- */
-  .controls { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
-  .section { padding: 16px 18px; border-top: 1px solid var(--line); }
-  .section:first-child { border-top: 0; }
-  .label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-  .label { font-size: 13px; font-weight: 600; }
-  .hint { font-size: 12.5px; color: var(--muted); }
-  textarea {
-    width: 100%; margin-top: 8px; padding: 10px 12px; resize: vertical;
-    background: var(--field); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
-    font: 13px/1.5 ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace;
-  }
-  #prompt { height: 280px; min-height: 120px; }
-  #neg { height: 84px; min-height: 52px; }
-  textarea:focus-visible, button:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-  details > summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-  details > summary::-webkit-details-marker { display: none; }
-  details > summary .label::before { content: "▸"; display: inline-block; width: 14px; color: var(--muted); transition: transform .15s; }
-  details[open] > summary .label::before { transform: rotate(90deg); }
-  .link-btn { background: none; border: 0; padding: 0; color: var(--accent); font-size: 12.5px; cursor: pointer; }
-  .link-btn:hover { color: var(--accent-strong); text-decoration: underline; }
-
-  .models { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
-  .sizes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
-  .size {
-    display: flex; align-items: center; gap: 10px; padding: 8px 10px; text-align: left;
-    background: var(--field); color: var(--text); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; font: inherit;
-  }
-  .size:hover:not(:disabled) { border-color: #444a53; }
-  .size[aria-pressed="true"] { border-color: var(--accent); background: #1f2d2c; }
-  .size:disabled { opacity: .4; cursor: not-allowed; }
-  .size .box { flex: 0 0 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
-  .size .box i { display: block; border: 1.5px solid var(--muted); border-radius: 2px; }
-  .size[aria-pressed="true"] .box i { border-color: var(--accent); }
-  .size .dims { display: block; font-size: 13px; font-variant-numeric: tabular-nums; }
-  .size .ratio { display: block; font-size: 11.5px; color: var(--muted); }
-
-  #go {
-    width: 100%; height: 46px; border: 0; border-radius: 9px; cursor: pointer;
-    background: var(--accent); color: var(--on-accent); font: inherit; font-size: 15px; font-weight: 650;
-  }
-  #go:hover:not(:disabled) { background: var(--accent-strong); }
-  #go:disabled { background: #3a3d44; color: #8d929b; cursor: not-allowed; }
-  #go-hint { margin-top: 8px; min-height: 18px; font-size: 12.5px; color: var(--muted); text-align: center; }
-
-  .meters { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .meter .top { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: var(--muted); }
-  .meter .val { color: var(--text); font-variant-numeric: tabular-nums; }
-  .track { height: 5px; margin-top: 6px; border-radius: 3px; background: #33363c; overflow: hidden; }
-  .fill { height: 100%; width: 0; background: var(--accent); transition: width .4s, background-color .4s; }
-  .fill.warn { background: var(--warn); }
-  .fill.err { background: var(--err); }
-
-  #logs {
-    margin-top: 10px; height: 200px; overflow-y: auto; padding: 10px 12px;
-    background: #141518; border: 1px solid var(--line); border-radius: 8px;
-    font: 12px/1.5 ui-monospace, "Cascadia Mono", Menlo, Consolas, monospace; color: #9aa0aa; white-space: pre-wrap; word-break: break-word;
-  }
-  #logs .log-warn { color: var(--warn); }
-  #logs .log-err { color: var(--err); }
-
-  /* ---------- stage ---------- */
-  .stage {
-    position: sticky; top: 18px; display: flex; flex-direction: column; gap: 12px;
-    height: calc(100vh - 100px); min-height: 520px;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px;
-  }
-  #alerts:empty { display: none; }
-  .alert { padding: 9px 12px; margin-bottom: 6px; border-radius: 8px; background: #3a2220; border: 1px solid #6b2f2b; color: #f4b3ad; font-size: 13px; }
-  .canvas {
-    position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
-    background: #141518; border-radius: 8px; overflow: hidden;
-  }
-  #result { max-width: 100%; max-height: 100%; object-fit: contain; transition: opacity .2s; }
-  .canvas.busy #result { opacity: .25; }
-  .empty { max-width: 340px; text-align: center; color: var(--muted); padding: 0 20px; }
-  .empty strong { display: block; color: var(--text); font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-
-  .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-  .progress-box { width: min(420px, 82%); }
-  .progress-title { font-size: 16px; font-weight: 600; }
-  .progress-bar { height: 8px; margin: 12px 0 10px; border-radius: 4px; background: #33363c; overflow: hidden; }
-  .progress-bar > div { height: 100%; width: 0; background: var(--accent); border-radius: 4px; transition: width .6s linear; }
-  .progress-bar.indeterminate > div { width: 35%; animation: slide 1.4s ease-in-out infinite; }
-  @keyframes slide { 0% { margin-left: -35%; } 100% { margin-left: 100%; } }
-  .progress-meta { display: flex; gap: 18px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-
-  .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 34px; flex-wrap: wrap; }
-  .meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .meta .ok { color: var(--ok); }
-  .meta .err { color: var(--err); }
-  .actions { display: flex; gap: 8px; }
-  .btn {
-    padding: 6px 14px; border: 1px solid var(--line); border-radius: 7px; background: var(--field); color: var(--text);
-    font: inherit; font-size: 13px; text-decoration: none; cursor: pointer;
-  }
-  .btn:hover { border-color: #4a505a; }
-
-  .history { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
-  .history:empty { display: none; }
-  .thumb { flex: 0 0 auto; height: 64px; padding: 0; border: 2px solid transparent; border-radius: 6px; background: none; cursor: pointer; overflow: hidden; }
-  .thumb img { height: 100%; display: block; }
-  .thumb[aria-current="true"] { border-color: var(--accent); }
-
-  @media (max-width: 1100px) {
-    .layout { grid-template-columns: 1fr; }
-    .stage { position: static; height: auto; min-height: 0; }
-    .canvas { min-height: 60vh; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .progress-bar.indeterminate > div { animation: none; width: 100%; opacity: .5; }
-    * { transition: none !important; }
-  }
-</style>
+<link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 <div class="app">
   <header>
-    <h1>Qwen Image</h1>
+    <h1 id="app-title">Qwen Image</h1>
     <div class="chips">
       <span class="chip" id="chip-api"><span class="dot"></span><span class="t">API</span></span>
       <span class="chip" id="chip-model"><span class="dot"></span><span class="t">Model</span></span>
@@ -169,9 +19,27 @@
   </header>
 
   <div class="layout">
-    <!-- ================= controls ================= -->
-    <div class="controls">
+    <!-- ================= menu ================= -->
+    <nav class="controls" aria-label="Menu">
       <div class="section">
+        <div class="modes">
+          <button class="mode-btn" type="button" data-view="create">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 2v12M2 8h12"/></svg>
+            Create
+          </button>
+          <button class="mode-btn" type="button" data-view="edit">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10.5 2.5l3 3-8 8H2.5v-3z"/></svg>
+            Edit
+          </button>
+        </div>
+        <button class="mode-btn gallery-btn" type="button" data-view="gallery">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>
+          Gallery <span class="count" id="gallery-count"></span>
+        </button>
+      </div>
+
+      <!-- shared by Create and Edit (hidden when the container serves one model) -->
+      <div class="section" data-modes="create edit" id="models-section">
         <div class="label-row">
           <span class="label">Model</span>
           <span class="hint" id="model-hint"></span>
@@ -179,26 +47,60 @@
         <div class="models" id="models"></div>
       </div>
 
-      <div class="section">
+      <!-- ---------- Edit: reference images ---------- -->
+      <div class="section" data-modes="edit">
+        <div class="label-row">
+          <span class="label">Images</span>
+          <button class="link-btn" id="source-clear" type="button" hidden>Remove all</button>
+        </div>
+        <div class="ref-list" id="source-list" hidden></div>
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Add images">
+          <div class="empty-text" id="drop-empty">
+            <strong id="drop-empty-title">Drop images here</strong>
+            or click to choose, or paste (Ctrl+V)
+          </div>
+        </div>
+        <input type="file" id="source-file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+        <div class="source-meta">
+          <span class="hint" id="source-hint"></span>
+        </div>
+      </div>
+
+      <!-- ---------- prompts ---------- -->
+      <div class="section" data-modes="create">
         <div class="label-row">
           <label class="label" for="prompt">Prompt</label>
           <span class="hint">Ctrl+Enter to generate</span>
         </div>
-        <textarea id="prompt" spellcheck="false" placeholder="a red fox sitting in a snowy forest..."></textarea>
+        <textarea id="prompt" class="prompt" spellcheck="false" placeholder="a red fox sitting in a snowy forest..."></textarea>
+        <div class="label-row" style="margin-top:6px">
+          <span class="hint">Put exact text to render in quotes.</span>
+          <button class="link-btn" id="rgba-example" type="button" title="Adds the model's wording for a transparent (RGBA) PNG">Transparent background</button>
+        </div>
       </div>
 
-      <div class="section">
+      <div class="section" data-modes="edit">
+        <div class="label-row">
+          <label class="label" for="edit-prompt">Prompt</label>
+          <span class="hint">Ctrl+Enter to edit</span>
+        </div>
+        <textarea id="edit-prompt" class="prompt" spellcheck="false"
+          placeholder="What to change, e.g. &quot;Change the background to a sunset beach&quot; or &quot;Put the product from Picture 1 on the table in Picture 2&quot;"></textarea>
+        <div class="hint" style="margin-top:6px">Write an instruction. Everything you don't mention is kept.</div>
+      </div>
+
+      <div class="section" data-modes="create edit">
         <details id="neg-details">
           <summary>
             <span class="label">Negative prompt</span>
-            <span class="hint" id="cfg-hint"></span>
+            <span class="hint" id="neg-hint"></span>
           </summary>
           <textarea id="neg" spellcheck="false" placeholder="things to avoid"></textarea>
-          <div style="margin-top:6px;text-align:right"><button class="link-btn" id="neg-reset" type="button">Reset to config default</button></div>
+          <div class="row-end"><button class="link-btn" id="neg-reset" type="button">Reset to config default</button></div>
         </details>
       </div>
 
-      <div class="section">
+      <div class="section" data-modes="create">
         <div class="label-row">
           <span class="label">Size</span>
           <span class="hint" id="size-hint"></span>
@@ -206,11 +108,39 @@
         <div class="sizes" id="sizes"></div>
       </div>
 
-      <div class="section">
-        <button id="go" type="button" disabled>Generate</button>
-        <div id="go-hint">Waiting for the API to start...</div>
+      <div class="section" data-modes="edit">
+        <div class="label-row">
+          <span class="label">Output size</span>
+          <span class="hint" id="edit-size-hint"></span>
+        </div>
+        <div class="sizes" id="edit-sizes"></div>
       </div>
 
+      <div class="section" data-modes="create edit">
+        <details id="adv-details">
+          <summary>
+            <span class="label">Advanced</span>
+            <span class="hint">Empty = config default</span>
+          </summary>
+          <div class="adv-grid">
+            <label>Steps<input id="steps" type="number" min="1" max="200" step="1" inputmode="numeric"></label>
+            <label>CFG<input id="cfg" type="number" min="1" max="10" step="0.1" inputmode="decimal" title="1 = off (recommended). Above 1 roughly doubles the time."></label>
+            <label>Seed<input id="seed" type="number" min="0" step="1" inputmode="numeric" placeholder="random"></label>
+          </div>
+          <div class="row-end"><button class="link-btn" id="adv-reset" type="button">Clear overrides</button></div>
+        </details>
+      </div>
+
+      <div class="section" data-modes="create">
+        <button id="go" class="primary" type="button" disabled>Generate</button>
+        <div class="go-hint" id="go-hint">Waiting for the API to start...</div>
+      </div>
+      <div class="section" data-modes="edit">
+        <button id="go-edit" class="primary" type="button" disabled>Edit image</button>
+        <div class="go-hint" id="go-edit-hint"></div>
+      </div>
+
+      <!-- always visible -->
       <div class="section">
         <div class="meters">
           <div class="meter">
@@ -227,427 +157,82 @@
       <div class="section">
         <details open>
           <summary><span class="label">Server log</span></summary>
-          <div id="logs"></div>
+          <div id="logs" class="logbox"></div>
         </details>
       </div>
-    </div>
+    </nav>
 
-    <!-- ================= stage ================= -->
-    <section class="stage" aria-label="Result">
-      <div id="alerts"></div>
-      <div class="canvas" id="canvas">
-        <div class="empty" id="empty">
-          <strong>No image yet</strong>
-          Write a prompt, pick a size and press Generate.
-        </div>
-        <img id="result" alt="Generated image" hidden>
-        <div class="overlay" id="overlay" hidden>
-          <div class="progress-box">
-            <div class="progress-title" id="progress-title">Starting...</div>
-            <div class="progress-bar" id="progress-bar"><div id="progress-fill"></div></div>
-            <div class="progress-meta">
-              <span id="progress-step"></span>
-              <span id="progress-elapsed"></span>
-              <span id="progress-eta"></span>
+    <main>
+      <!-- ================= stage: Create / Edit result ================= -->
+      <section class="stage" id="stage" aria-label="Result">
+        <div id="alerts"></div>
+        <div class="canvas" id="canvas">
+          <div class="empty" id="empty">
+            <strong>No image yet</strong>
+            <span id="empty-text">Write a prompt, pick a size and press Generate.</span>
+          </div>
+          <img id="result" alt="Generated image" hidden>
+          <span class="compare-tag" id="compare-tag" hidden>Source</span>
+          <div class="overlay" id="overlay" hidden>
+            <div class="progress-box">
+              <div class="progress-title" id="progress-title">Starting...</div>
+              <div class="progress-bar" id="progress-bar"><div id="progress-fill"></div></div>
+              <div class="progress-meta">
+                <span id="progress-step"></span>
+                <span id="progress-elapsed"></span>
+                <span id="progress-eta"></span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="toolbar">
-        <div class="meta" id="meta"></div>
-        <div class="actions">
-          <a class="btn" id="open-full" target="_blank" rel="noopener" hidden>Open full size</a>
-          <a class="btn" id="download" hidden>Download PNG</a>
+        <div class="toolbar">
+          <div class="meta" id="meta"></div>
+          <div class="actions">
+            <button class="btn" id="compare" type="button" aria-pressed="false" hidden title="Show the (last) reference image: hold or click">Compare</button>
+            <button class="btn" id="edit-this" type="button" hidden>Edit this</button>
+            <a class="btn" id="open-full" target="_blank" rel="noopener" hidden>Open full size</a>
+            <a class="btn" id="download" hidden>Download PNG</a>
+          </div>
         </div>
-      </div>
-      <div class="history" id="history"></div>
-    </section>
+        <div class="history" id="history"></div>
+      </section>
+
+      <!-- ================= gallery ================= -->
+      <section class="gallery" id="gallery" aria-label="Gallery" hidden>
+        <div id="gallery-list">
+          <div class="gallery-head">
+            <h2>Gallery</h2>
+            <span class="hint" id="gallery-summary"></span>
+            <button class="btn" id="gallery-refresh" type="button">Refresh</button>
+          </div>
+          <div class="grid" id="grid"></div>
+          <div class="gallery-empty" id="gallery-empty" hidden>No images in <code>output/</code> yet.</div>
+          <div class="gallery-foot"><button class="btn" id="gallery-more" type="button" hidden>Load more</button></div>
+        </div>
+
+        <div id="gallery-detail" hidden>
+          <div class="detail-head">
+            <button class="btn" id="detail-back" type="button">&larr; Back to gallery</button>
+            <div class="actions">
+              <button class="btn" id="detail-reuse" type="button">Reuse settings</button>
+              <button class="btn" id="detail-edit" type="button">Edit this image</button>
+              <a class="btn" id="detail-open" target="_blank" rel="noopener">Open full size</a>
+              <a class="btn" id="detail-download">Download PNG</a>
+            </div>
+          </div>
+          <div class="detail-img"><img id="detail-img" alt=""></div>
+          <div class="detail-facts" id="detail-facts"></div>
+          <div class="detail-source" id="detail-source" hidden>
+            <span>Edited from</span><span class="detail-source-imgs" id="detail-source-imgs"></span>
+          </div>
+          <div class="label detail-log-label" id="detail-log-label"></div>
+          <pre class="logbox" id="detail-log"></pre>
+        </div>
+      </section>
+    </main>
   </div>
 </div>
 
-<script>
-// Turbo UI is served on :3001 and talks to the turbo API on :8001. Override with ?api=PORT.
-const API_PORT = new URLSearchParams(location.search).get("api") || (location.port === "3001" ? "8001" : "8000");
-const API_BASE = `http://${location.hostname || "localhost"}:${API_PORT}`;
-const $ = id => document.getElementById(id);
-
-// ---- tiny localStorage wrapper (a long JSON prompt survives a refresh) ----
-const store = {
-  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
-};
-
-// ---- state ----
-let apiReady = false, modelLoaded = false, runOnRam = false;
-let generating = false, startTs = 0;
-let step = 0, totalSteps = 0, firstStepTs = null, firstStepNo = 0;
-let etaDeadline = null, lastStepSeen = 0;
-let sizesLoaded = false, selectedSize = null, defaultNeg = "";
-let modelsInfo = [], selectedModel = null, loadedModel = null, requestedModel = null;
-const history = [];
-
-// ---- prompt fields ----
-const promptEl = $("prompt"), negEl = $("neg");
-promptEl.value = store.get("qwen.prompt") || "";
-promptEl.addEventListener("input", () => store.set("qwen.prompt", promptEl.value));
-negEl.addEventListener("input", () => store.set("qwen.neg", negEl.value));
-$("neg-reset").addEventListener("click", () => { negEl.value = defaultNeg; store.set("qwen.neg", defaultNeg); });
-[promptEl, negEl].forEach(el => el.addEventListener("keydown", e => {
-  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); generate(); }
-}));
-
-// ---- status chips / controls ----
-function setChip(id, state, text) {
-  const el = $(id);
-  el.className = "chip" + (state ? " " + state : "");
-  el.querySelector(".t").textContent = text;
-}
-function renderChips() {
-  setChip("chip-api", apiReady ? "ok" : "err", apiReady ? "API online" : "API offline");
-  setChip("chip-model", !apiReady ? "" : modelLoaded ? "ok" : "warn",
-          !apiReady ? "Model unknown" : modelLoaded ? `Loaded: ${modelLabel(loadedModel)}` : "No model loaded");
-  setChip("chip-mode", "", !apiReady ? "Mode unknown" : runOnRam ? "Running on RAM (CPU)" : "GPU with CPU offload");
-}
-function renderControls() {
-  $("go").disabled = !apiReady || !sizesLoaded || generating;
-  $("go").textContent = generating ? "Generating..." : "Generate";
-  let hint = "";
-  if (!apiReady) hint = "Waiting for the API to start...";
-  else if (generating) hint = "";
-  else if (!modelLoaded) hint = "The model loads on the first run, so it will take a few minutes.";
-  else if (selectedModel && loadedModel && selectedModel !== loadedModel)
-    hint = `${modelLabel(selectedModel)} will replace ${modelLabel(loadedModel)} in memory, which takes a few minutes.`;
-  $("go-hint").textContent = hint;
-}
-
-// ---- meters ----
-function setMeter(prefix, s) {
-  const text = $(prefix + "-text"), bar = $(prefix + "-bar");
-  if (!s || s.error) { text.textContent = "n/a"; bar.style.width = "0%"; return; }
-  const pct = s.used_gb / s.total_gb * 100;
-  text.textContent = `${s.used_gb} / ${s.total_gb} GB`;
-  bar.style.width = pct + "%";
-  bar.className = "fill" + (pct >= 90 ? " err" : pct >= 75 ? " warn" : "");
-}
-
-// ---- alerts ----
-function renderAlerts(list) {
-  const box = $("alerts");
-  box.replaceChildren(...(list || []).map(msg => {
-    const d = document.createElement("div");
-    d.className = "alert";
-    d.textContent = msg;
-    return d;
-  }));
-}
-
-// ---- logs ----
-function renderLogs(lines) {
-  const el = $("logs");
-  const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 24;
-  el.replaceChildren(...(lines || []).map(line => {
-    const d = document.createElement("div");
-    d.textContent = line;
-    if (/ ERROR /.test(line)) d.className = "log-err";
-    else if (/ WARNING /.test(line)) d.className = "log-warn";
-    return d;
-  }));
-  if (atBottom) el.scrollTop = el.scrollHeight;
-}
-
-// ---- polling ----
-async function pollStatus() {
-  try {
-    const res = await fetch(API_BASE + "/status");
-    if (!res.ok) throw new Error("not ok");
-    const d = await res.json();
-    apiReady = true;
-    modelLoaded = d.model_loaded;
-    loadedModel = d.loaded_model || null;
-    runOnRam = !!d.run_on_ram;
-    totalSteps = d.total_steps || totalSteps;
-    // the server keeps the last run's final step after it finishes; only trust it while active
-    step = d.generating ? d.step : 0;
-    if (generating && step > 0) {
-      if (firstStepTs === null) {
-        firstStepTs = Date.now(); firstStepNo = step; lastStepSeen = step;
-      } else if (step !== lastStepSeen) {
-        lastStepSeen = step;
-        // Re-estimate only when a new step lands, and keep it as a fixed finish time
-        // that counts down smoothly in between.
-        if (step - firstStepNo >= 2 && totalSteps) {
-          const perStep = (Date.now() - firstStepTs) / (step - firstStepNo);
-          etaDeadline = Date.now() + (totalSteps - step) * perStep;
-        }
-      }
-    }
-    setMeter("vram", d.gpu);
-    setMeter("ram", d.ram);
-    renderAlerts(d.warnings);
-    renderLogs(d.logs);
-  } catch (err) {
-    apiReady = false;
-  }
-  renderChips();
-  renderControls();
-  renderProgress();
-}
-setInterval(pollStatus, 1000);
-pollStatus();
-
-// ---- progress overlay ----
-function fmt(sec) {
-  sec = Math.max(0, Math.round(sec));
-  return sec >= 60 ? `${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, "0")}s` : `${sec}s`;
-}
-function setText(id, text) {
-  const el = $(id);
-  if (el.textContent !== text) el.textContent = text;   // only touch the DOM when the text changes
-}
-function renderProgress() {
-  $("overlay").hidden = !generating;
-  $("canvas").classList.toggle("busy", generating);
-  // Hide the "No image yet" text while the first image is being made.
-  if ($("result").hidden) $("empty").hidden = generating;
-  if (!generating) return;
-
-  const elapsed = (Date.now() - startTs) / 1000;
-  const bar = $("progress-bar");
-  const needsLoad = !modelLoaded || (requestedModel && loadedModel !== requestedModel);
-  let title;
-  if (step === 0) title = needsLoad ? "Loading the model..." : "Reading the prompt...";
-  else if (totalSteps && step >= totalSteps) title = "Finishing up...";
-  else title = "Generating image";
-  setText("progress-title", title);
-
-  if (step > 0 && totalSteps) {
-    bar.classList.remove("indeterminate");
-    $("progress-fill").style.width = (step / totalSteps * 100) + "%";
-    setText("progress-step", `Step ${step} of ${totalSteps}`);
-  } else {
-    bar.classList.add("indeterminate");
-    $("progress-fill").style.width = "";
-    setText("progress-step", "");
-  }
-  setText("progress-elapsed", `${fmt(elapsed)} elapsed`);
-
-  let eta = "";
-  if (etaDeadline !== null && !(totalSteps && step >= totalSteps)) {
-    let left = Math.max(0, Math.round((etaDeadline - Date.now()) / 1000));
-    if (left >= 60) left = Math.round(left / 5) * 5;   // coarser when far away, so it doesn't fidget
-    eta = left === 0 ? "almost done" : `about ${fmt(left)} left`;
-  }
-  setText("progress-eta", eta);
-}
-setInterval(renderProgress, 500);
-
-// ---- sizes ----
-function gcd(a, b) { return b ? gcd(b, a % b) : a; }
-function renderSizes(data) {
-  const wrap = $("sizes");
-  wrap.replaceChildren();
-  const stored = store.get("qwen.size");
-  const sizes = data.available_sizes;
-  const usable = s => { const [w, h] = s.split("x").map(Number); return !data.max_pixels || w * h <= data.max_pixels; };
-  selectedSize = sizes.includes(stored) && usable(stored) ? stored : (sizes.find(usable) || sizes[0]);
-
-  sizes.forEach(size => {
-    const [w, h] = size.split("x").map(Number);
-    const g = gcd(w, h);
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "size";
-    btn.dataset.size = size;
-    btn.disabled = !usable(size);
-    if (btn.disabled) btn.title = "Over max_pixels in config.yaml";
-    const k = 20 / Math.max(w, h);
-    btn.innerHTML = `<span class="box"><i style="width:${Math.round(w * k)}px;height:${Math.round(h * k)}px"></i></span>
-      <span><span class="dims">${w}×${h}</span><span class="ratio">${w / g}:${h / g}</span></span>`;
-    btn.addEventListener("click", () => selectSize(size));
-    wrap.appendChild(btn);
-  });
-  selectSize(selectedSize);
-}
-function selectSize(size) {
-  selectedSize = size;
-  store.set("qwen.size", size);
-  document.querySelectorAll("#sizes .size").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.size === size)));
-}
-
-// ---- models ----
-function modelLabel(id) {
-  const m = modelsInfo.find(x => x.id === id);
-  return m ? m.label : (id || "none");
-}
-function currentModel() {
-  return modelsInfo.find(m => m.id === selectedModel) || modelsInfo[0];
-}
-function renderModels(data) {
-  modelsInfo = data.models;
-  const stored = store.get("qwen.model");
-  const ok = id => modelsInfo.some(m => m.id === id && m.available);
-  const firstOk = (modelsInfo.find(m => m.available) || modelsInfo[0]).id;
-  const pick = ok(stored) ? stored : ok(data.default_model) ? data.default_model : firstOk;
-
-  const wrap = $("models");
-  wrap.replaceChildren();
-  modelsInfo.forEach(m => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "size";
-    btn.dataset.model = m.id;
-    btn.disabled = !m.available;
-    if (!m.available) btn.title = `Not downloaded yet: ${m.path}`;
-    const steps = m.true_cfg_scale > 1 ? `${m.total_steps} steps, guided` : `${m.total_steps} steps`;
-    btn.innerHTML = `<span><span class="dims"></span><span class="ratio"></span></span>`;
-    btn.querySelector(".dims").textContent = m.label;
-    btn.querySelector(".ratio").textContent = m.available ? steps : "Not downloaded";
-    btn.addEventListener("click", () => selectModel(m.id));
-    wrap.appendChild(btn);
-  });
-  selectModel(pick);
-}
-function selectModel(id) {
-  selectedModel = id;
-  store.set("qwen.model", id);
-  document.querySelectorAll("#models .size").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.model === id)));
-  const m = currentModel();
-  defaultNeg = m.negative_prompt || "";
-  const cfgOn = (m.true_cfg_scale || 1) > 1;
-  $("cfg-hint").textContent = cfgOn ? `Guidance ${m.true_cfg_scale}` : "Off (guidance is 1.0)";
-  $("neg-details").open = cfgOn;
-  $("model-hint").textContent = `${m.total_steps} steps`;
-  renderControls();
-}
-
-async function loadConfig() {
-  if (sizesLoaded) return;
-  try {
-    const res = await fetch(API_BASE + "/config");
-    if (!res.ok) throw new Error("not ok");
-    const data = await res.json();
-    renderSizes(data);
-
-    renderModels(data);
-    const storedNeg = store.get("qwen.neg");
-    negEl.value = storedNeg !== null ? storedNeg : defaultNeg;
-
-    sizesLoaded = true;
-    renderControls();
-  } catch (err) { /* API not ready yet — retry */ }
-}
-setInterval(loadConfig, 3000);
-loadConfig();
-
-// ---- result display / history ----
-function b64ToBlobUrl(b64) {
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
-}
-
-function metaSpan(text, cls) {
-  const s = document.createElement("span");
-  if (cls) s.className = cls;
-  s.textContent = text;
-  return s;
-}
-function setMeta(parts) { $("meta").replaceChildren(...parts); }
-
-function showItem(item) {
-  $("result").src = item.url;
-  $("result").hidden = false;
-  $("empty").hidden = true;
-  $("open-full").href = item.url;
-  $("open-full").hidden = false;
-  $("download").href = item.url;
-  $("download").download = item.filename;
-  $("download").hidden = false;
-
-  const parts = [metaSpan(item.model || ""),
-                 metaSpan(`${item.size.replace("x", "×")} px`),
-                 metaSpan(`${item.total}s total`, "ok")];
-  if (item.server != null) parts.push(metaSpan(`${item.server}s on the server`));
-  parts.push(metaSpan(item.time));
-  setMeta(parts);
-  document.querySelectorAll(".thumb").forEach(t => t.setAttribute("aria-current", String(t.dataset.id === item.id)));
-}
-
-function addHistory(item) {
-  history.unshift(item);
-  while (history.length > 12) URL.revokeObjectURL(history.pop().url);
-  const wrap = $("history");
-  wrap.replaceChildren(...history.map(h => {
-    const b = document.createElement("button");
-    b.type = "button"; b.className = "thumb"; b.dataset.id = h.id;
-    b.title = `${h.size}, ${h.time}`;
-    const im = document.createElement("img");
-    im.src = h.url; im.alt = "";
-    b.appendChild(im);
-    b.addEventListener("click", () => showItem(h));
-    return b;
-  }));
-}
-
-// ---- generate ----
-async function generate() {
-  if ($("go").disabled) return;
-  const prompt = promptEl.value.trim();
-  if (!prompt) {
-    setMeta([metaSpan("Enter a prompt before generating.", "err")]);
-    promptEl.focus();
-    return;
-  }
-
-  generating = true;
-  startTs = Date.now();
-  firstStepTs = null; firstStepNo = 0; step = 0; etaDeadline = null; lastStepSeen = 0;
-  setMeta([]);
-  renderControls();
-  renderProgress();
-
-  const size = selectedSize;
-  requestedModel = selectedModel;
-  try {
-    const res = await fetch(API_BASE + "/v1/images/generations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, size, model: selectedModel, negative_prompt: negEl.value }),
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      let detail = text;
-      try { detail = JSON.parse(text).detail || text; } catch (e) {}
-      throw new Error(detail);
-    }
-    const data = await res.json();
-    const now = new Date();
-    const item = {
-      id: String(now.getTime()),
-      url: b64ToBlobUrl(data.data[0].b64_json),
-      size,
-      total: ((Date.now() - startTs) / 1000).toFixed(1),
-      server: data.generation_seconds,
-      time: now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      filename: `qwen_${size}_${now.getTime()}.png`,
-      model: modelLabel(requestedModel),
-    };
-    addHistory(item);
-    showItem(item);
-  } catch (err) {
-    const secs = ((Date.now() - startTs) / 1000).toFixed(1);
-    const msg = err instanceof TypeError
-      ? "Lost the connection to the API. It may have restarted or run out of memory. Check the server log."
-      : err.message;
-    setMeta([metaSpan(`Failed after ${secs}s`, "err"), metaSpan(msg, "err")]);
-  } finally {
-    generating = false;
-    renderControls();
-    renderProgress();
-  }
-}
-$("go").addEventListener("click", generate);
-</script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>

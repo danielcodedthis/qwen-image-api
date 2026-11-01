@@ -6,7 +6,7 @@ Services in `docker-compose.yml`: `qwen-image-api` (`:8000`), `qwen-image-ui`
 ## Docker — build & run
 
 ```bash
-# Rebuild — required after ANY change to server/*.py, Dockerfile or Dockerfile.turbo.
+# Rebuild — required after ANY change to server/, requirements.txt, Dockerfile or Dockerfile.turbo.
 # `restart` alone does NOT pick up code changes (COPY bakes files in at build time).
 docker compose build
 
@@ -31,7 +31,7 @@ docker compose build --build-arg DIFFUSERS_REF=<commit-sha> qwen-image-turbo-api
 ```bash
 nano config.yaml && docker compose restart qwen-image-api          # base settings
 nano config.turbo.yaml && docker compose restart qwen-image-turbo-api   # Turbo settings
-cp index.html web/ && chmod 644 web/index.html                     # UI: just refresh the browser
+chmod -R a+rX web                                                  # UI: just refresh the browser
 ```
 
 ## Docker — stop, restart, remove
@@ -63,7 +63,7 @@ docker compose start qwen-image-turbo-api     # bring one back
 docker compose ps
 docker stats qwen-image-api                 # live CPU/RAM/network
 docker exec -it qwen-image-api bash         # shell in
-docker exec qwen-image-api grep -A5 "CORSMiddleware" /app/main.py
+docker exec qwen-image-api grep -A3 "CORSMiddleware" /app/server/app.py
 docker inspect qwen-image-api               # mounts, env, devices
 ```
 
@@ -85,8 +85,12 @@ The app's own `/status` endpoint returns recent log lines, live GPU/RAM stats,
 generation progress and active warnings:
 
 ```bash
-curl http://localhost:8000/status           # base
+curl http://localhost:8000/status           # base: busy/phase/progress, VRAM/RAM, warnings, log lines
 curl http://localhost:8001/status           # Turbo
+curl http://localhost:8000/config           # sizes, models (real step counts), edit limits
+curl http://localhost:8000/health           # liveness, no GPU query
+curl "http://localhost:8000/v1/gallery?limit=5"     # newest images with prompt previews
+curl http://localhost:8000/v1/gallery/<id>/log      # one job's log
 curl http://localhost:8001/config           # sizes, models, per-model steps/guidance
 ```
 
@@ -108,7 +112,45 @@ curl -X POST http://localhost:8001/v1/images/generations \
 python3 -c "import json,base64;d=json.load(open('response.json'));open('out.png','wb').write(base64.b64decode(d['data'][0]['b64_json']))"
 ```
 
-A `409` means another generation is running; a `503` means out of memory.
+### Edits
+
+```bash
+# one image (multipart); repeat -F image=@... for Picture 2, 3, ...
+curl -X POST http://localhost:8000/v1/images/edits \
+  -F image=@photo.jpg -F prompt="Change the background to a sunset beach" -o edit.json
+
+# images already in output/, by id, in order (JSON)
+curl -X POST http://localhost:8000/v1/images/edits -H "Content-Type: application/json" \
+  -d '{"prompt": "Put the mug from Picture 1 on the table in Picture 2",
+       "images": [{"source": "1761234567_ab12cd34"}, {"source": "1761234599_cd56ef78"}]}' -o edit.json
+```
+
+A `400` means a bad size (not a multiple of 32), model, setting or image; a `404` an
+unknown source image; a `409` that another job is running; a `503` out of memory.
+
+## MCP
+
+```bash
+# through the stdio bridge (what Bionic runs): initialize + status (Turbo: add http://localhost:8001/mcp)
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"check","version":"1"}}}' \
+  '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_status","arguments":{}}}' \
+  | python3 tools/mcp_stdio_bridge.py
+
+claude mcp add --transport http qwen-image http://localhost:8000/mcp        # Claude Code
+claude mcp add --transport http qwen-image-turbo http://localhost:8001/mcp
+```
+
+See `docs/MCP.md`.
+
+## Tests (no GPU needed)
+
+```bash
+pip install -r requirements-dev.txt
+pytest -q                                   # whole suite
+pytest -q tests/test_edit.py -k several     # a subset
+python tests/mock_server.py                 # real API + UI + MCP with a fake model (UI :3102, API :8102)
+python tests/fixtures/make_fixtures.py      # regenerate the synthetic test images
+```
 
 ## GPU (ROCm)
 
@@ -138,7 +180,7 @@ sudo journalctl -k -b | grep -i oom
 mkdir -p models output output-turbo cache/miopen   # create these yourself, as your user
 ls -ld output-turbo                                # should be owned by you, not root
 sudo chown -R "$USER":"$USER" output-turbo         # fix a root-owned mount folder
-chmod 644 web/index.html                           # nginx 403 "Permission denied" fix
+chmod -R a+rX web                                  # nginx 403 "Permission denied" fix
 docker logs qwen-image-turbo-ui 2>&1 | tail -5     # nginx errors
 ```
 

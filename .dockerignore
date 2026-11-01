@@ -17,8 +17,13 @@ __pycache__/
 response.json
 output/
 
-# Docs not needed inside the container
+# Docs, tests, tools, skills and the UI are not needed inside the API image
 *.md
+docs/
+tests/
+tools/
+skills/
+web/
 
 # Environment variables
 .env
