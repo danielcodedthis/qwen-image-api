@@ -15,11 +15,11 @@ memory:
   # Decode the final image through the VAE in float32 instead of bf16. Try this
   # if you see fine lines or banding. It needs extra VRAM during the last decode
   # step, so at your largest resolutions test it before relying on it.
-  vae_fp32: false
+  vae_fp32: true
   # Decode the final image on the CPU from system RAM instead of the GPU. Use it
   # if a large size runs out of VRAM in the last step. Only the decode gets slower.
   # Takes priority over vae_fp32.
-  vae_on_cpu: false
+  vae_on_cpu: true
 
   # VRAM budget for pipeline component placement (device_map="balanced"), set
   # at LOAD TIME. Components too large for this budget (the text encoder, in
@@ -34,7 +34,7 @@ memory:
   # room for that spike.
   #
   # 16GiB is the current tested safe minimum value
-  gpu_max_memory: "16GiB"
+  gpu_max_memory: "14GiB"
 
   # System RAM budget for whatever spills off the GPU.
   cpu_max_memory: "80GiB"
@@ -52,7 +52,7 @@ generation:
   # steps cost half as much). Anything above 1.0 runs the transformer twice
   # per step, so generation takes roughly 2x as long. 4.0 is the Qwen-Image
   # reference value.
-  true_cfg_scale: 2.0
+  true_cfg_scale: 1.0
 
   # Default negative prompt, pre-filled in the web UI (the UI field can
   # override it per request). Only used when true_cfg_scale > 1.
