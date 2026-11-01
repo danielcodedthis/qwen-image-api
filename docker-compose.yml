@@ -75,7 +75,7 @@ services:
     image: nginx:alpine
     container_name: qwen-image-ui
     ports:
-      - "3000:80"
+      - "5008:80"
     volumes:
       - ./web:/usr/share/nginx/html:ro
     depends_on:
@@ -87,7 +87,7 @@ services:
     image: nginx:alpine
     container_name: qwen-image-turbo-ui
     ports:
-      - "3001:80"
+      - "5009:80"
     volumes:
       - ./web:/usr/share/nginx/html:ro
     depends_on:

@@ -68,7 +68,7 @@ the background stays transparent.
 
 ## 4. Web UI
 
-Open http://localhost:3000 (Turbo: http://localhost:3001; hard refresh: Ctrl+Shift+R).
+Open http://localhost:5008 (Turbo: http://localhost:5009; hard refresh: Ctrl+Shift+R).
 The title says "Qwen Image" or "Qwen Image Turbo".
 
 - **Create**: generate 1024x1024. Progress overlay shows steps and time left (Turbo:

@@ -1,9 +1,9 @@
 // Talking to the API. The UI (nginx) and API (FastAPI) are on different ports.
-// The same page serves both containers: opened on :3001 it talks to the Turbo API
+// The same page serves both containers: opened on :5009 it talks to the Turbo API
 // (:8001), otherwise to the base API (:8000). Override with ?api=PORT.
 
 const params = new URLSearchParams(location.search);
-export const API_PORT = params.get("api") || (location.port === "3001" ? "8001" : "8000");
+export const API_PORT = params.get("api") || (location.port === "5009" ? "8001" : "8000");
 export const API_BASE = `http://${location.hostname || "localhost"}:${API_PORT}`;
 
 export const apiUrl = path => (path.startsWith("http") ? path : API_BASE + path);

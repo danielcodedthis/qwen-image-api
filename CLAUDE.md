@@ -12,15 +12,15 @@ Two FastAPI services wrapping the `diffusers` `QwenImage21Pipeline`, running on
 AMD ROCm against a Radeon AI PRO R9700 (gfx1201, RDNA4, 32GB VRAM), on Arch
 Linux, **96GB system RAM** (upgraded from 32GB):
 
-- `qwen-image-api` (`:8000`, UI `qwen-image-ui` on `:3000`): Qwen-Image-2.1 (base).
-- `qwen-image-turbo-api` (`:8001`, UI `qwen-image-turbo-ui` on `:3001`):
+- `qwen-image-api` (`:8000`, UI `qwen-image-ui` on `:5008`): Qwen-Image-2.1 (base).
+- `qwen-image-turbo-api` (`:8001`, UI `qwen-image-turbo-ui` on `:5009`):
   Qwen-Image-2.1-Turbo only.
 
 Both APIs run the same code in `server/` but are separate containers with their
 own image (`Dockerfile` / `Dockerfile.turbo`), config (`config.yaml` /
 `config.turbo.yaml`), output folder (`output/` / `output-turbo/`) and port.
 Both UIs are nginx containers serving the same `web/` files; the page picks
-its API from the port it is opened on (`:3001` → `:8001`, else `:8000`, or
+its API from the port it is opened on (`:5009` → `:8001`, else `:8000`, or
 `?api=PORT`).
 
 Features: Create (text to image), Edit (Qwen-Image-2.1's native instruction editing

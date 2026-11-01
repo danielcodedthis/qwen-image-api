@@ -1,7 +1,7 @@
 # Command reference
 
 Services in `docker-compose.yml`: `qwen-image-api` (`:8000`), `qwen-image-ui`
-(`:3000`), `qwen-image-turbo-api` (`:8001`), `qwen-image-turbo-ui` (`:3001`).
+(`:5008`), `qwen-image-turbo-api` (`:8001`), `qwen-image-turbo-ui` (`:5009`).
 
 ## Docker — build & run
 
@@ -52,8 +52,8 @@ docker compose start
 stops. Before using the other model:
 
 ```bash
-docker compose stop qwen-image-api            # then use Turbo on :3001
-docker compose stop qwen-image-turbo-api      # then use the base model on :3000
+docker compose stop qwen-image-api            # then use Turbo on :5009
+docker compose stop qwen-image-turbo-api      # then use the base model on :5008
 docker compose start qwen-image-turbo-api     # bring one back
 ```
 

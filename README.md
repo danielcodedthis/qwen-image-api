@@ -17,12 +17,12 @@ Qwen-Image-2.1-Turbo, running on AMD ROCm (tested on an AMD Radeon AI PRO R9700,
 ```
 ┌──────────────────────┐      ┌──────────────────────────┐
 │  qwen-image-ui       │      │  qwen-image-api          │
-│  (nginx, :3000)      │────▶│  (FastAPI, :8000, /mcp)  │
+│  (nginx, :5008)      │────▶│  (FastAPI, :8000, /mcp)  │
 └──────────────────────┘      │  Qwen-Image-2.1          │
                               └──────────────────────────┘
 ┌──────────────────────┐      ┌──────────────────────────┐
 │  qwen-image-turbo-ui │      │  qwen-image-turbo-api    │
-│  (nginx, :3001)      │────▶│  (FastAPI, :8001, /mcp)  │
+│  (nginx, :5009)      │────▶│  (FastAPI, :8001, /mcp)  │
 └──────────────────────┘      │  Qwen-Image-2.1-Turbo    │
                               └──────────────────────────┘
 ```
@@ -32,7 +32,7 @@ Qwen-Image-2.1-Turbo, running on AMD ROCm (tested on an AMD Radeon AI PRO R9700,
 - **`qwen-image-turbo-api`**: the same server code in its own container, serving only
   Turbo, with its own `Dockerfile.turbo`, `config.turbo.yaml` and `output-turbo/` folder.
 - **`qwen-image-ui`** / **`qwen-image-turbo-ui`**: the same static UI (`web/`) served by
-  nginx. Opened on `:3000` it talks to the base API, opened on `:3001` to the Turbo API.
+  nginx. Opened on `:5008` it talks to the base API, opened on `:5009` to the Turbo API.
   No build step, no framework.
 
 See `CLAUDE.md` for AI-assistant-facing context and `docs/PITFALLS.md` for the issues
@@ -54,8 +54,8 @@ chmod -R a+rX web
 docker compose up -d --build
 
 # 4. Open a UI
-# http://localhost:3000  (base model)
-# http://localhost:3001  (Turbo)
+# http://localhost:5008  (base model)
+# http://localhost:5009  (Turbo)
 
 # 5. Or call an API directly (port 8001 for Turbo)
 curl -X POST http://localhost:8000/v1/images/generations \

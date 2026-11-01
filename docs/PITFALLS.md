@@ -291,7 +291,7 @@ returned to the browser.
 
 ## nginx `403 Forbidden` on the UI
 
-**Symptom:** `http://localhost:3001/` returns 403, or the page loads unstyled/blank
+**Symptom:** `http://localhost:5009/` returns 403, or the page loads unstyled/blank
 because `css/app.css` or a `js/*.js` file returns 403. The nginx log says
 `open() "/usr/share/nginx/html/..." failed (13: Permission denied)`.
 

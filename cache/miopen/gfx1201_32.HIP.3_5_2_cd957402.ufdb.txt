@@ -405,3 +405,4 @@
 576-512-512-1x1-288-512-512-1-0x0-1x1-1x1-0-NCHW-FP32-F=ConvBinWinogradRxSf2x3g1:16.6668,0,miopenConvolutionFwdAlgoWinograd;ConvBinWinogradRxSf3x2:8.03004,0,miopenConvolutionFwdAlgoWinograd;GemmFwd1x1_0_1:7.3446,0,miopenConvolutionFwdAlgoGEMM
 576-514-514-3x3-288-512-512-1-0x0-1x1-1x1-0-NCHW-FP32-F=ConvBinWinogradRxSf2x3g1:18.3128,0,miopenConvolutionFwdAlgoWinograd;ConvBinWinogradRxSf3x2:32.1853,0,miopenConvolutionFwdAlgoWinograd;GemmFwdRest:71.7948,5435817984,miopenConvolutionFwdAlgoGEMM
 288-514-514-3x3-288-512-512-1-0x0-1x1-1x1-0-NCHW-FP32-F=ConvBinWinogradRxSf2x3g1:9.19629,0,miopenConvolutionFwdAlgoWinograd;ConvBinWinogradRxSf3x2:15.6374,0,miopenConvolutionFwdAlgoWinograd;GemmFwdRest:36.2599,2717908992,miopenConvolutionFwdAlgoGEMM
+3-2-16-16-2x16x16-1152-1-1-1-4096-0x0x0-2x16x16-1x1x1-0-NCDHW-BF16-F=GemmFwdRest:0.258086,0,miopenConvolutionFwdAlgoGEMM;ConvHipImplicitGemm3DGroupFwdXdlops:1.22729,25559040,miopenConvolutionFwdAlgoImplicitGEMM
